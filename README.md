@@ -85,7 +85,7 @@ neptune {
 
 # Developer Guide
 
-* [API document wiki](http://gitlab.qiyi.domain/mobile-android/baseline-sh/QYPlugin/wikis/home)
+* [API document wiki](https://github.com/iqiyi/Neptune/wiki)
 * [Host App Sample Project](samples/HostApp)
 * [Plugin App Sample Project](samples/PluginApp)
 * [Read SDKLibrary source code](SdkLibrary)
