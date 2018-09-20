@@ -1,0 +1,70 @@
+apply plugin: 'maven'
+apply plugin: 'signing'
+
+def getRepositoryUrl() {
+    if (isReleaseBuild()) {
+        println 'RELEASE BUILD'
+        return hasProperty('NEXUS_REPO') ? NEXUS_REPO : ""
+    } else {
+        println 'SNAPSHOTS BUILD'
+        return ""
+    }
+}
+
+def getRepositoryUsername() {
+    return hasProperty('NEXUS_USERNAME') ? NEXUS_USERNAME : ""
+}
+
+def getRepositoryPassword() {
+    return hasProperty('NEXUS_PASSWORD') ? NEXUS_PASSWORD : ""
+}
+
+def isReleaseBuild() {
+    return !(VERSION.contains('SNAPSHOT'))
+}
+
+
+afterEvaluate { project ->
+    uploadArchives {
+        repositories {
+            mavenDeployer {
+                beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
+                pom.artifactId = ARTIFACT_ID
+                pom.groupId = GROUP_ID
+                pom.version = VERSION
+
+                repository(url: uri(getRepositoryUrl())) {
+                    authentication(userName: getRepositoryUsername(), password: getRepositoryPassword())
+                }
+
+                pom.project {
+                    name POM_NAME
+                    packaging POM_PACKAGING
+                    description POM_DESCRIPTION
+                }
+            }
+        }
+    }
+
+    // 进行数字签名
+    signing {
+        required { isReleaseBuild() && gradle.taskGraph.hasTask("uploadArchives") }
+        sign configurations.archives
+    }
+}
+
+
+task sourcesJar(type: Jar) {
+    from sourceSets.main.allSource
+    include '**/*.java'
+    include '**/*.groovy'
+    classifier = 'sources'
+}
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    classifier = 'javadoc'
+    from groovydoc.destinationDir
+}
+artifacts {
+    //archives javadocJar
+    archives sourcesJar
+}

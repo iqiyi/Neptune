@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="loading_plugin">正在加载插件...</string>
+    <string name="load_plugin_failed">插件加载失败</string>
+    <string name="under_recovery">恢复中...</string>
+</resources>

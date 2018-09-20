@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">HostSample</string>
+
+    <string name="plugin_state">测试插件状态: %1$s</string>
+    <string name="install_plugin">安装测试插件</string>
+    <string name="launch_plugin">启动测试插件</string>
+    <string name="uninstall_plugin">卸载测试插件</string>
+</resources>

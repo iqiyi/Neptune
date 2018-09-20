@@ -1,0 +1,74 @@
+import com.android.builder.model.Version
+import com.qiyi.plugin.utils.Utils
+
+apply plugin: 'com.android.application'
+
+apply plugin: 'com.qiyi.neptune.plugin'
+// 宿主使用，固定资源id
+neptune {
+    pluginMode = false
+    packageId = 0x7f
+}
+
+
+android {
+    compileSdkVersion COMPILE_SDK_VERSION
+    buildToolsVersion BUILD_TOOLS_VERSION
+    defaultConfig {
+        applicationId "com.iqiyi.host.sample"
+        minSdkVersion 14
+        targetSdkVersion TARGET_SDK_VERSION
+        versionCode 1
+        versionName "1.0"
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+    }
+    dexOptions {
+        //preDexLibraries false
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    sourceSets {
+        main {
+            jniLibs.srcDirs = ['libs']
+        }
+    }
+
+    android.applicationVariants.all { variant ->
+
+        def fileName = defaultConfig.applicationId + ".apk"
+        variant.outputs.each { output ->
+            // 修改apk名称
+            //def fileName = defaultConfig.applicationId + "-" + defaultConfig.versionName + "-" + variant.buildType.name + ".apk"
+            boolean highAGP = Utils.compareVersion(Version.ANDROID_GRADLE_PLUGIN_VERSION, "3.0.0") >= 0
+            if (highAGP) {
+                output.outputFileName = fileName
+            } else {
+                def file = output.outputFile
+                if (file != null && file.name.endsWith(".apk")) {
+                    output.outputFile = new File(file.parent, fileName)
+                }
+            }
+        }
+    }
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation "com.android.support:appcompat-v7:${ANDROID_SUPPORT_VERSION}"
+    implementation "com.android.support:support-annotations:${ANDROID_SUPPORT_VERSION}"
+    implementation "com.android.support:support-v4:${ANDROID_SUPPORT_VERSION}"
+    implementation "com.android.support:recyclerview-v7:${ANDROID_SUPPORT_VERSION}"
+    implementation "com.facebook.fresco:fresco:${FRESCO_VERSION}"
+    implementation "com.airbnb.android:lottie:${LOTTIE_VERSION}"
+    implementation "com.jakewharton:butterknife:${BUTTER_KNIFE_VERSION}"
+    annotationProcessor "com.jakewharton:butterknife-compiler:${BUTTER_KNIFE_VERSION}"
+
+    //implementation project(":SdkLibrary")
+    implementation "org.qiyi.video:neptune:2.5.0"
+}

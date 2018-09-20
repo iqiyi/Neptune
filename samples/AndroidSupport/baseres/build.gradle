@@ -1,0 +1,168 @@
+import com.android.build.gradle.api.LibraryVariant
+import com.android.build.gradle.tasks.MergeResources
+import com.android.build.gradle.tasks.ProcessAndroidResources
+
+apply plugin: 'com.android.library'
+
+android {
+    compileSdkVersion 26
+    buildToolsVersion "26.0.2"
+
+    defaultConfig {
+        minSdkVersion 14
+        targetSdkVersion 26
+        versionCode 1
+        versionName "1.0"
+        vectorDrawables.useSupportLibrary = true
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    sourceSets {
+        main {
+            res.srcDirs = ['src/main/res',
+                           'src/main/res_appcompatv7',
+                           'src/main/res_supportv4']
+        }
+    }
+
+    lintOptions {
+        abortOnError false
+    }
+}
+
+
+dependencies {
+    compile fileTree(dir: 'libs', include: ['*.jar'])
+}
+
+// Upload to Maven
+apply from: 'maven_push.gradle'
+// Upload to Jcenter
+apply from: 'bintray_upload.gradle'
+
+import com.android.builder.model.Version
+
+def isHigherAGP = compareVersion(Version.ANDROID_GRADLE_PLUGIN_VERSION, "3.0.0") >= 0
+// 打公共资源aar，必须使用AGP 2.3.3版本，否则生成的aar中R.txt文件资源id与public.xml会不相同
+// TODO fix me
+afterEvaluate {
+
+    android.libraryVariants.all { LibraryVariant variant ->
+        def scope = variant.getVariantData().getScope()
+        String mergeTaskName = "package${variant.name.capitalize()}Resources"
+        MergeResources mergeResTask = project.tasks.getByName(mergeTaskName) as MergeResources
+        // 拷贝public.xml
+        mergeResTask.doLast {
+            copy {
+                int i = 0
+                from(android.sourceSets.main.res.srcDirs) {
+                    include 'values/public.xml'
+                    rename 'public.xml', (i++ == 0 ? "public.xml" : "public_${i}.xml")
+                }
+
+                into(mergeResTask.outputDir)
+            }
+        }
+
+        println "mergeTaskName: ${mergeTaskName}, outputDir: ${mergeResTask.outputDir}"
+
+        String processResTaskName = isHigherAGP ?
+                scope.getProcessResourcesTask().name : scope.getGenerateRClassTask().name
+        ProcessAndroidResources processResTask = project.tasks.getByName(processResTaskName) as ProcessAndroidResources
+
+        processResTask.doLast {
+            File publicXml = new File(projectDir, "src/main/res/values/public.xml")
+            File RSymbol = isHigherAGP ? processResTask.textSymbolOutputFile : new File(processResTask.textSymbolOutputDir, "R.txt")
+            println "publicXml path: ${publicXml.absolutePath}, RSymbol path: ${RSymbol.absolutePath}"
+            verifyRSymbol(publicXml, RSymbol)
+        }
+
+        Zip bundleTask = project.tasks.getByName("bundle${variant.name.capitalize()}") as Zip
+        bundleTask.exclude("**/res/values/public.xml")
+    }
+}
+
+class ResEntry {
+    String type
+    String name
+    int id
+
+    ResEntry(String type, String name, int id) {
+        this.type = type
+        this.name = name
+        this.id = id
+    }
+}
+
+def verifyRSymbol(File publicXml, File RSymbol) {
+    HashMap<String, ResEntry> fixedNodes = new HashMap<>()
+    def root = new XmlParser().parse(publicXml)
+    root.public.each {
+        String type = it."@type"
+        String name = it."@name"
+        int id = Integer.decode(it."@id")
+        ResEntry entry = new ResEntry(type, name, id)
+        fixedNodes.put(type + "_" + name, entry)
+    }
+
+    HashMap<String, ResEntry> RNodes = new HashMap<>()
+    if (RSymbol == null || !RSymbol.exists()) {
+        println "RSymbol File not exist"
+        return
+    }
+    RSymbol.eachLine { line ->
+        if (!line.empty) {
+            def tokenizer = new StringTokenizer(line)
+            def valueType = tokenizer.nextToken()     // value type (int or int[])
+            def resType = tokenizer.nextToken()      // resource type (attr/string/color etc.)
+            def resName = tokenizer.nextToken()
+            def resId = tokenizer.nextToken('\r\n').trim()
+
+            if (resType != 'styleable') {
+                ResEntry entry = new ResEntry(resType, resName, Integer.decode(resId))
+                RNodes.put(resType + "_" + resName, entry)
+            }
+        }
+    }
+
+    // verify R.txt
+    boolean verified = true
+    int notMatchCnt = 0
+    RNodes.each { key, value ->
+        if (fixedNodes.containsKey(key)) {
+            int id = fixedNodes.get(key).id
+            if (id != value.id) {
+                verified = false
+                notMatchCnt = notMatchCnt + 1
+                println "id not match, type=${value.type}, name=${value.name}, public.xml id: 0x${Integer.toHexString(id)}, R.txt id: 0x${Integer.toHexString(value.id)}"
+            }
+        }
+    }
+    println "verify R.txt file pass? ${verified}, notMatchCnt=${notMatchCnt}"
+    if (!verified) {
+//        throw new GradleException("ids in public.xml not equals to generated R.txt")
+    }
+}
+
+
+public static int compareVersion(String v1, String v2) {
+    String[] va1 = v1.split("\\.")
+    String[] va2 = v2.split("\\.")
+
+    int idx = 0
+    int minLen = Math.max(va1.length, va2.length)
+    int diff = 0
+    while (idx < minLen
+            && (diff = va1[idx].length() - va2[idx].length()) == 0
+            && (diff = va1[idx].compareTo(va2[idx])) == 0) {
+        ++idx
+    }
+
+    return (diff != 0) ? diff : va1.length - va2.length
+}

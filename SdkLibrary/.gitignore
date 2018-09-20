@@ -1,0 +1,9 @@
+.gradle/
+.idea/
+*.iml
+local.properties
+build/
+/gen/
+/bin/
+addCopyRight.gradle
+lint/report

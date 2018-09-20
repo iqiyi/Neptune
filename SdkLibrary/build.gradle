@@ -1,0 +1,85 @@
+apply plugin: 'com.android.library'
+
+buildscript {
+    repositories {
+        jcenter()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:2.3.3'
+    }
+}
+
+dependencies {
+    compileOnly files('libs/android-26.jar')
+    compileOnly files('libs/android-support-26.1.0.jar')
+}
+
+
+android {
+    compileSdkVersion COMPILE_SDK_VERSION
+    buildToolsVersion BUILD_TOOLS_VERSION
+    lintOptions {
+        abortOnError false
+    }
+    sourceSets {
+        main {
+            manifest.srcFile 'AndroidManifest.xml'
+            java.srcDirs = ['src']
+            resources.srcDirs = ['src']
+            aidl.srcDirs = ['src']
+            renderscript.srcDirs = ['src']
+            res.srcDirs = ['res']
+            assets.srcDirs = ['assets']
+            jniLibs.srcDirs = ['libs']
+        }
+    }
+    defaultConfig {
+        minSdkVersion 14
+        targetSdkVersion TARGET_SDK_VERSION
+    }
+    dexOptions {
+        javaMaxHeapSize "2g"
+        jumboMode true
+    }
+    packagingOptions {
+        exclude('META-INF/DEPENDENCIES')
+        exclude('META-INF/NOTICE')
+        exclude('META-INF/LICENSE')
+    }
+    lintOptions {
+        // Or, if you prefer, you can continue to check for errors in release builds,
+        checkReleaseBuilds false
+        // but continue the build even when errors are found:
+        abortOnError false
+    }
+}
+
+import groovy.xml.XmlUtil
+// 调整Android SDK的依赖顺序，放到SdkLibrary.iml文件的最后面
+preBuild.doLast {
+    def imlFile = file(project.name + ".iml")
+    println "Change ${project.name} .iml orderEntry"
+    try {
+        def parsedXml = (new XmlParser()).parse(imlFile)
+        def jdkNode = parsedXml.component[1].orderEntry.find {
+            it.'@type' == 'jdk'
+        }
+        parsedXml.component[1].remove(jdkNode)
+        def sdkver = "Android API " + android.compileSdkVersion.substring("android-".length())  + " Platform"
+        new Node(parsedXml.component[1], 'orderEntry', ['type': 'jdk', 'jdkName': sdkver, 'jdkType': 'Android SDK'])
+        XmlUtil.serialize(parsedXml, new FileOutputStream(imlFile))
+
+        println "Modify ${project.name} ${imlFile} success"
+    } catch (FileNotFoundException e) {
+        // nop, iml not found
+        e.printStackTrace()
+    }
+}
+// 依赖本地的android-26.jar
+gradle.projectsEvaluated {
+    tasks.withType(JavaCompile) {
+        options.compilerArgs.add('-Xbootclasspath/p:libs/android-26.jar')
+    }
+}
+
+apply from: "release.gradle"

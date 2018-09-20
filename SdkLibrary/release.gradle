@@ -1,0 +1,31 @@
+
+task sourcesJar(type: Jar) {
+    from android.sourceSets.main.java.srcDirs
+    classifier = 'sources'
+}
+task javadoc(type: Javadoc) {
+    source = android.sourceSets.main.java.srcDirs
+    options.encoding = "utf-8"
+    classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
+}
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    classifier = 'javadoc'
+    from javadoc.destinationDir
+}
+artifacts {
+    //archives javadocJar
+    archives sourcesJar
+}
+// Upload to Bintray
+apply from: "bintray_upload.gradle"
+// Upload to Maven
+apply from: 'maven_upload.gradle'
+
+afterEvaluate {
+    Task upload = project.tasks.getByName("bintrayUpload")
+    Task build = project.tasks.getByName("build")
+    Task install = project.tasks.getByName("install")
+
+    upload.dependsOn(install)
+    upload.dependsOn(build)
+}
