@@ -94,5 +94,5 @@ neptune {
 
 # License
 
-Neptune is [Apache v2.0 Licensed](LICENSE.md).
+Neptune is [Apache v2.0 Licensed](LICENSE).
 

@@ -96,5 +96,5 @@ We sincerely appreciate your PR contribution of any kind , including codes, sugg
 
 # License
 
-Neptune is [Apache v2.0 Licensed](LICENSE.md).
+Neptune is [Apache v2.0 Licensed](LICENSE).
 
