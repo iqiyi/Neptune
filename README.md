@@ -92,7 +92,7 @@ neptune {
 
 # Contribution
 
-We sincerely appreciate your PR contribution of any kind , including codes, suggestions or documentaion to improve our project.
+We sincerely appreciate your PR contribution of any kind , including codes, suggestions or documentation to improve our project.
 
 # License
 
