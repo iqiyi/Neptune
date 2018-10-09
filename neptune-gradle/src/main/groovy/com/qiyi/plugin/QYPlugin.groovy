@@ -2,7 +2,6 @@ package com.qiyi.plugin
 
 import com.android.build.gradle.AppExtension
 import com.android.build.gradle.internal.api.ApplicationVariantImpl
-import com.android.build.gradle.internal.scope.VariantScope
 import com.android.builder.model.Version
 import com.qiyi.plugin.dex.RClassTransform
 import com.qiyi.plugin.hooker.TaskHookerManager
@@ -63,12 +62,10 @@ class QYPlugin implements Plugin<Project> {
      * 创建安装插件apk到宿主特定目录的任务
      */
     private void createInstallPluginTask(ApplicationVariantImpl variant) {
-        if (pluginExt.pluginMode && pluginExt.hostPackageName != null && pluginExt.hostPackageName.length() > 0) {
+        if (pluginExt.hostPackageName != null && pluginExt.hostPackageName.length() > 0) {
             TaskFactory taskFactory = new TaskFactory(project.getTasks())
-            VariantScope scope = variant.getVariantData().getScope()
             InstallPlugin installTask = taskFactory.create(new InstallPlugin.ConfigAction(variant))
-            // it might be AndroidTask, this class removed in AGP 3.1
-            String assembleTaskName = scope.getAssembleTask().getName()
+            String assembleTaskName = variant.getAssemble().name
             installTask.dependsOn(assembleTaskName)
         }
     }

@@ -13,12 +13,14 @@ import org.gradle.util.VersionNumber
 class TaskUtil {
 
     public static MergeResources getMergeResourcesTask(Project project,
-                                                ApplicationVariantImpl appVariant) {
+                                                       ApplicationVariantImpl appVariant) {
         def scope = appVariant.getVariantData().getScope()
         QYPluginExtension extension = project.extensions.findByType(QYPluginExtension.class)
 
         MergeResources mergeResTask
-        if (extension.agpVersion >= VersionNumber.parse("3.0")) {
+        if (extension.agpVersion >= VersionNumber.parse("3.2")) {
+            mergeResTask = appVariant.mergeResources
+        } else if (extension.agpVersion >= VersionNumber.parse("3.0")) {
             mergeResTask = appVariant.getVariantData().mergeResourcesTask
         } else {
             String mergeTaskName = scope.getMergeResourcesTask().name
@@ -29,7 +31,7 @@ class TaskUtil {
     }
 
     public static ProcessAndroidResources getProcessAndroidResourcesTask(Project project,
-                                                                  ApplicationVariantImpl appVariant) {
+                                                                         ApplicationVariantImpl appVariant) {
         def scope = appVariant.getVariantData().getScope()
         QYPluginExtension extension = project.extensions.findByType(QYPluginExtension.class)
 
@@ -40,12 +42,14 @@ class TaskUtil {
     }
 
     public static ManifestProcessorTask getManifestProcessorTask(Project project,
-                                                   ApplicationVariantImpl appVariant) {
+                                                                 ApplicationVariantImpl appVariant) {
         def scope = appVariant.getVariantData().getScope()
         QYPluginExtension extension = project.extensions.findByType(QYPluginExtension.class)
 
         ManifestProcessorTask manifestTask
-        if (extension.agpVersion >= VersionNumber.parse("3.1")) {
+        if (extension.agpVersion >= VersionNumber.parse("3.2")) {
+            manifestTask = appVariant.getVariantData().getTaskContainer().processManifestTask
+        } else if (extension.agpVersion >= VersionNumber.parse("3.1")) {
             // AGP 3.1 返回的是ManifestProcessTask
             Object task = appVariant.getVariantData().getScope().manifestProcessorTask
             if (task instanceof ManifestProcessorTask) {
@@ -86,8 +90,22 @@ class TaskUtil {
         String varName = appVariant.name.capitalize()
         Task dexTask = project.tasks.findByName("transformClassesWithDexFor${varName}")
         if (dexTask == null) {
-            // if still null, may lower gradle
+            // 3.0.0 debug mode task name DexBuilder
+            dexTask = project.tasks.findByName("transformClassesWithDexBuilderFor${varName}")
+        }
+        if (dexTask == null) {
+            // multidex might disable
+            dexTask = project.tasks.findByName("transformClassesWithPreDexFor${varName}")
+        }
+        if (dexTask == null) {
+            // finally we try a lower version
             dexTask = project.tasks.findByName("dex${varName}")
+        }
+
+        if (dexTask != null) {
+            println "found dexTask with name: ${dexTask.name}"
+        } else {
+            println "[warning] we don't found dex task!!!"
         }
         return dexTask
     }
