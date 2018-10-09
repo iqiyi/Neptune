@@ -27,6 +27,8 @@ import android.text.TextUtils;
 
 import org.qiyi.pluginlibrary.install.PluginInstaller;
 import org.qiyi.pluginlibrary.plugin.InterfaceToGetHost;
+import org.qiyi.pluginlibrary.pm.PluginPackageInfo;
+import org.qiyi.pluginlibrary.pm.PluginPackageManagerNative;
 import org.qiyi.pluginlibrary.runtime.PluginLoadedApk;
 import org.qiyi.pluginlibrary.runtime.PluginManager;
 
@@ -36,8 +38,7 @@ public class ContextUtils {
     private static final String TAG = ContextUtils.class.getSimpleName();
 
     /**
-     * Try to get host context in the plugin environment or the param context
-     * will be return
+     * 将插件的Context转换为宿主的Context，这样可以访问宿主的资源
      */
     public static Context getOriginalContext(Context context) {
 
@@ -88,9 +89,9 @@ public class ContextUtils {
 
 
     /**
-     * Try to get host ResourcesToolForPlugin in the plugin environment or the
-     * ResourcesToolForPlugin with param context will be return
+     * 获取宿主的HostResourceTool工具
      */
+    @Deprecated
     public static ResourcesToolForPlugin getHostResourceTool(Context context) {
         if (context instanceof InterfaceToGetHost) {
             PluginDebugLog.log(TAG, "Return host  resource tool for getHostResourceTool");
@@ -121,8 +122,7 @@ public class ContextUtils {
     }
 
     /**
-     * Get the real package name for this plugin in plugin environment otherwise
-     * return context's package name
+     * 获取插件的包名，如果不是插件的Context，返回APP的包名
      */
     public static String getPluginPackageName(Context context) {
         if (null == context) {
@@ -201,25 +201,24 @@ public class ContextUtils {
     }
 
 
-    public static String getPluginappDBPath(Context context, String pkg) {
-        if (context == null || TextUtils.isEmpty(pkg)) {
-            return null;
-        }
-        return PluginInstaller.getPluginappRootPath(context) + File.separator + pkg + File.separator + "databases";
-    }
-
-    public static PackageInfo getPluginPluginInfo(Context context) {
-        String pkg = getPluginPackageName(context);
-        if (context == null || TextUtils.isEmpty(pkg)) {
+    /**
+     * 获取插件的PackageInfo信息
+     */
+    public static PackageInfo getPluginPackageInfo(Context context) {
+        String pkgName = getPluginPackageName(context);
+        if (context == null || TextUtils.isEmpty(pkgName)) {
             return null;
         }
 
-        PluginLoadedApk mLoadedApk = PluginManager.getPluginLoadedApkByPkgName(pkg);
-
-        if (mLoadedApk == null) {
-            return null;
+        PluginLoadedApk mLoadedApk = PluginManager.getPluginLoadedApkByPkgName(pkgName);
+        if (mLoadedApk != null) {
+            return mLoadedApk.getPackageInfo();
         }
-        PackageInfo pkgInfo = mLoadedApk.getPackageInfo();
-        return pkgInfo;
+
+        PluginPackageInfo packageInfo = PluginPackageManagerNative.getInstance(context).getPluginPackageInfo(pkgName);
+        if (packageInfo != null) {
+            return packageInfo.getPackageInfo();
+        }
+        return null;
     }
 }
