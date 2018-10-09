@@ -720,15 +720,17 @@ public class PluginManager {
             PActivityStackSupervisor mActivityStackSupervisor =
                     mLoadedApk.getActivityStackSupervisor();
             lastActivity = mActivityStackSupervisor.getAvailableActivity();
-            if (!(mHostContext instanceof Activity)) {
+            if (mHostContext instanceof Activity) {
+                mHostContext.startActivity(mIntent);
+            } else if (lastActivity != null) {
+                // Clear the Intent.FLAG_ACTIVITY_NEW_TASK
                 int flag = mIntent.getFlags();
                 flag = flag ^ Intent.FLAG_ACTIVITY_NEW_TASK;
                 mIntent.setFlags(flag);
-            }
-
-            if (lastActivity != null) {
                 lastActivity.startActivity(mIntent);
             } else {
+                // Add the Intent.FLAG_ACTIVITY_NEW_TASK
+                mIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 mHostContext.startActivity(mIntent);
             }
         }
