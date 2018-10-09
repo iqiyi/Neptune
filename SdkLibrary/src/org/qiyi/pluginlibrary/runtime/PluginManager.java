@@ -720,10 +720,13 @@ public class PluginManager {
             PActivityStackSupervisor mActivityStackSupervisor =
                     mLoadedApk.getActivityStackSupervisor();
             lastActivity = mActivityStackSupervisor.getAvailableActivity();
-            if (!(mHostContext instanceof Activity) && null != lastActivity) {
+            if (!(mHostContext instanceof Activity)) {
                 int flag = mIntent.getFlags();
                 flag = flag ^ Intent.FLAG_ACTIVITY_NEW_TASK;
                 mIntent.setFlags(flag);
+            }
+
+            if (lastActivity != null) {
                 lastActivity.startActivity(mIntent);
             } else {
                 mHostContext.startActivity(mIntent);
