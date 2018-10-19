@@ -35,14 +35,10 @@ class TaskHookerManager {
     /** Android Config information */
     private AppExtension android
 
-    private QYPluginExtension qyplugin
-
     public TaskHookerManager(Project project) {
         this.project = project
         android = project.extensions.findByType(AppExtension)
-        qyplugin = project.extensions.findByType(QYPluginExtension)
     }
-
 
     public void registerTaskHooker() {
         project.afterEvaluate {
@@ -113,13 +109,19 @@ class TaskHookerManager {
 
         manifestProcessorTask.doLast {
             File manifest
-            try {
-                manifest = manifestProcessorTask.manifestOutputFile
-            } catch (Throwable tr) {
-                tr.printStackTrace()
+            if (pluginExt.agpVersion >= VersionNumber.parse("3.0")) {
                 // AGP 3.0.0, changed
                 println manifestProcessorTask.manifestOutputDirectory
                 manifest = new File(manifestProcessorTask.manifestOutputDirectory, "AndroidManifest.xml")
+            } else {
+                try {
+                    manifest = manifestProcessorTask.manifestOutputFile
+                } catch (Throwable tr) {
+                    tr.printStackTrace()
+                    // AGP 3.0.0, changed
+                    println manifestProcessorTask.manifestOutputDirectory
+                    manifest = new File(manifestProcessorTask.manifestOutputDirectory, "AndroidManifest.xml")
+                }
             }
 
             if (!manifest.exists()) {

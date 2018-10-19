@@ -107,25 +107,11 @@ class AarDependenceInfo extends DependenceInfo {
                 dependency.project : artifact
         Project subProject = project.rootProject.findProject(projectName)
         if (subProject != null) {
-            File manifestsDir = new File(subProject.buildDir, "intermediates/manifests")
-            String[] middleName = ["full", "aapt"]
-            for (String name : middleName) {
-                File middleDir = FileUtils.join(manifestsDir, name)
-                List<String> buildTypes = new ArrayList<>()
-                buildTypes.add(apkVariant.buildType.name)
-                if (Utils.isAgpAbove3()) {
-                    buildTypes.addAll(apkVariant.buildType.matchingFallbacks)
-                }
-
-                for (String buildType : buildTypes) {
-                    File buildTypeDir = FileUtils.join(middleDir, buildType)
-
-                    File targetManifest = FileUtils.join(buildTypeDir, "AndroidManifest.xml")
-                    if (targetManifest.exists()) {
-                        aarManifestFile = targetManifest
-                        return this
-                    }
-                }
+            if (findManifestV32(subProject, apkVariant)) {
+                return this
+            }
+            if (findManifestV30(subProject, apkVariant)) {
+                return this
             }
 
             if (!aarManifestFile.exists()) {
@@ -134,6 +120,58 @@ class AarDependenceInfo extends DependenceInfo {
         }
 
         return this
+    }
+
+    private boolean findManifestV32(Project project, ApkVariant variant) {
+        File intermediateDir = new File(project.buildDir, "intermediates")
+        String[] middleName = ["merged_manifests", "aapt_friendly_merged_manifests"]
+        for (String name : middleName) {
+            File middleDir = FileUtils.join(intermediateDir, name)
+            List<String> buildTypes = new ArrayList<>()
+            buildTypes.add(variant.buildType.name)
+            if (Utils.isAgpAbove3()) {
+                buildTypes.addAll(variant.buildType.matchingFallbacks)
+            }
+
+            for (String buildType : buildTypes) {
+                File buildTypeDir = FileUtils.join(middleDir, buildType, "process${buildType.capitalize()}Manifest")
+                File targetManifest
+                if (name.startsWith("aapt")) {
+                    targetManifest = FileUtils.join(buildTypeDir, "aapt", "AndroidManifest.xml")
+                } else {
+                    targetManifest = FileUtils.join(buildTypeDir, "merged", "AndroidManifest.xml")
+                }
+                if (targetManifest.exists()) {
+                    aarManifestFile = targetManifest
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    private boolean findManifestV30(Project project, ApkVariant variant) {
+        File manifestsDir = new File(project.buildDir, "intermediates/manifests")
+        String[] middleName = ["full", "aapt"]
+        for (String name : middleName) {
+            File middleDir = FileUtils.join(manifestsDir, name)
+            List<String> buildTypes = new ArrayList<>()
+            buildTypes.add(variant.buildType.name)
+            if (Utils.isAgpAbove3()) {
+                buildTypes.addAll(variant.buildType.matchingFallbacks)
+            }
+
+            for (String buildType : buildTypes) {
+                File buildTypeDir = FileUtils.join(middleDir, buildType)
+
+                File targetManifest = FileUtils.join(buildTypeDir, "AndroidManifest.xml")
+                if (targetManifest.exists()) {
+                    aarManifestFile = targetManifest
+                    return true
+                }
+            }
+        }
+        return false
     }
 
     /**
