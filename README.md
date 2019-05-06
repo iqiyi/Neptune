@@ -1,7 +1,7 @@
 # Neptune
 
 ![license](http://img.shields.io/badge/license-Apache2.0-brightgreen.svg?style=flat)
-![Release Version](https://img.shields.io/badge/release-2.5.0-red.svg)
+![Release Version](https://img.shields.io/badge/release-2.6.0-red.svg)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 
 **Neptune is a flexible, powerful and lightweight plugin framework for Android.**
@@ -40,7 +40,7 @@ Especially, Neptune is greatly compatible with Android P . It can run on Android
 compile Neptune in application module of `build.gradle`.
 
 ```Gradle
-    implementation 'org.qiyi.video:neptune:2.5.0'
+    implementation 'org.qiyi.video:neptune:2.6.0'
 ```
 
 Initialize sdk in your `Application#onCreate()`.
@@ -67,7 +67,7 @@ If plugin app wants to share resources with host app, you need add dependency in
 
 ```Gradle
 dependencies {
-    classpath  'com.iqiyi.tools.build:neptune-gradle:1.1.6'
+    classpath  'com.iqiyi.tools.build:neptune-gradle:1.3.0'
 }
 ```
 

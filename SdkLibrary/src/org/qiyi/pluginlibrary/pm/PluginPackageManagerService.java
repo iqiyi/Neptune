@@ -25,6 +25,7 @@ import android.text.TextUtils;
 
 import org.qiyi.pluginlibrary.install.IActionFinishCallback;
 import org.qiyi.pluginlibrary.install.IInstallCallBack;
+import org.qiyi.pluginlibrary.install.IUninstallCallBack;
 import org.qiyi.pluginlibrary.utils.PluginDebugLog;
 
 import java.util.List;
@@ -37,7 +38,8 @@ import java.util.List;
 public class PluginPackageManagerService extends Service {
     private static final String TAG = "PluginPackageManagerService";
     // 插件信息管理
-    private PluginPackageManager mManager;
+    @SuppressWarnings("StaticFieldLeak")
+    private static PluginPackageManager mManager;
 
     @Override
     public void onCreate() {
@@ -107,8 +109,19 @@ public class PluginPackageManagerService extends Service {
             }
 
             @Override
-            public boolean uninstall(PluginLiteInfo info) throws RemoteException {
-                return mManager != null && mManager.uninstall(info);
+            public void deletePackage(PluginLiteInfo info, IUninstallCallBack listener) throws RemoteException {
+                if (mManager == null || info == null || TextUtils.isEmpty(info.packageName)) {
+                    return;
+                }
+                mManager.clearPackage(info, listener);
+            }
+
+            @Override
+            public void uninstall(PluginLiteInfo info, IUninstallCallBack listener) throws RemoteException {
+                if (mManager == null || info == null || TextUtils.isEmpty(info.packageName)) {
+                    return;
+                }
+                mManager.uninstall(info, listener);
             }
 
             @Override

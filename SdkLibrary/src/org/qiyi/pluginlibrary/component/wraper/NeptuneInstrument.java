@@ -28,7 +28,7 @@ import android.view.ContextThemeWrapper;
 
 import org.qiyi.pluginlibrary.Neptune;
 import org.qiyi.pluginlibrary.NeptuneConfig;
-import org.qiyi.pluginlibrary.component.TransRecoveryActivity0;
+import org.qiyi.pluginlibrary.component.TransRecoveryActivity1;
 import org.qiyi.pluginlibrary.component.base.IPluginBase;
 import org.qiyi.pluginlibrary.component.stackmgr.PluginActivityControl;
 import org.qiyi.pluginlibrary.context.PluginContextWrapper;
@@ -49,7 +49,7 @@ import org.qiyi.pluginlibrary.utils.ReflectionUtils;
 public class NeptuneInstrument extends PluginInstrument {
 
     private static final String TAG = "NeptuneInstrument";
-    private PluginActivityRecoveryHelper mRecoveryHelper = new PluginActivityRecoveryHelper();
+    private ActivityRecoveryHelper mRecoveryHelper = new ActivityRecoveryHelper();
 
     public NeptuneInstrument(Instrumentation hostInstr) {
         super(hostInstr);
@@ -88,7 +88,7 @@ public class NeptuneInstrument extends PluginInstrument {
 
     @Override
     public void callActivityOnCreate(Activity activity, Bundle icicle) {
-        boolean isRecovery = activity instanceof TransRecoveryActivity0;
+        boolean isRecovery = activity instanceof TransRecoveryActivity1;
         if (isRecovery) {
             mRecoveryHelper.saveIcicle(activity, icicle);
             mHostInstr.callActivityOnCreate(activity, null);
@@ -115,7 +115,7 @@ public class NeptuneInstrument extends PluginInstrument {
                             ReflectionUtils activityRef = ReflectionUtils.on(activity);
                             activityRef.setNoException("mResources", loadedApk.getPluginResource());
                             activityRef.setNoException("mApplication", loadedApk.getPluginApplication());
-                            Context pluginContext = new PluginContextWrapper(activity.getBaseContext(), packageName);
+                            Context pluginContext = new PluginContextWrapper(activity.getBaseContext(), loadedApk);
                             ReflectionUtils.on(activity, ContextWrapper.class).set("mBase", pluginContext);
                             // 5.0以下ContextThemeWrapper内会保存一个mBase，也需要反射替换掉
                             ReflectionUtils.on(activity, ContextThemeWrapper.class).setNoException("mBase", pluginContext);
@@ -179,7 +179,7 @@ public class NeptuneInstrument extends PluginInstrument {
 
     @Override
     public void callActivityOnRestoreInstanceState(Activity activity, Bundle savedInstanceState) {
-        if (activity instanceof TransRecoveryActivity0) {
+        if (activity instanceof TransRecoveryActivity1) {
             mRecoveryHelper.saveSavedInstanceState(activity, savedInstanceState);
             return;
         }

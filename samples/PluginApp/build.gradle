@@ -14,7 +14,6 @@ neptune {
     packageId = 0x30
     hostPackageName = "com.qiyi.video"
     hostDependencies = "com.qiyi.video.allclasses:commonres_lib"
-    dexModify = false
 }
 
 def getDate() {
@@ -29,9 +28,14 @@ android {
         applicationId "com.iqiyi.plugin.sample"
         minSdkVersion 14
         targetSdkVersion TARGET_SDK_VERSION
+        //multiDexEnabled true
         versionCode 2
         versionName "1.2"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+
+        ndk {
+            abiFilter 'armeabi'
+        }
     }
     dexOptions {
         //preDexLibraries false
@@ -39,9 +43,10 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField "String", "TIME", "\"${getDate()}\""
+            buildConfigField "String", "BUILD_TIME", "\"${getDate()}\""
         }
         release {
+            buildConfigField "String", "BUILD_TIME", "\"${getDate()}\""
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

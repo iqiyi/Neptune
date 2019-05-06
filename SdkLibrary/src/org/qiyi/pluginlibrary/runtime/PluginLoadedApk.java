@@ -17,11 +17,14 @@
  */
 package org.qiyi.pluginlibrary.runtime;
 
+import android.annotation.TargetApi;
 import android.app.Application;
 import android.app.Instrumentation;
 import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.ComponentCallbacks2;
+import android.content.ContentProvider;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.IntentFilter;
@@ -29,11 +32,15 @@ import android.content.ServiceConnection;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.ProviderInfo;
 import android.content.res.AssetManager;
 import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.net.Uri;
 import android.os.Build;
+import android.provider.Settings;
 import android.text.TextUtils;
+import android.webkit.WebViewFactory;
 
 import org.qiyi.pluginlibrary.Neptune;
 import org.qiyi.pluginlibrary.component.stackmgr.PActivityStackSupervisor;
@@ -41,6 +48,7 @@ import org.qiyi.pluginlibrary.component.stackmgr.PServiceSupervisor;
 import org.qiyi.pluginlibrary.component.stackmgr.PluginServiceWrapper;
 import org.qiyi.pluginlibrary.component.wraper.PluginInstrument;
 import org.qiyi.pluginlibrary.component.wraper.ResourcesProxy;
+import org.qiyi.pluginlibrary.provider.PluginContentResolver;
 import org.qiyi.pluginlibrary.context.PluginContextWrapper;
 import org.qiyi.pluginlibrary.error.ErrorType;
 import org.qiyi.pluginlibrary.install.PluginInstaller;
@@ -60,6 +68,7 @@ import java.io.File;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -116,6 +125,10 @@ public class PluginLoadedApk {
     private PluginContextWrapper mPluginAppContext;
     /* 自定义Instrumentation，对Activity跳转进行拦截 */
     private PluginInstrument mPluginInstrument;
+    /* 插件的ContentProvider对象，key是authority */
+    private Map<String, ContentProvider> mProviderMaps = new HashMap<>();
+    /* 插件的PluginContentResolver */
+    private PluginContentResolver mPluginContentResolver;
 
     /**
      * 动态通过资源名称获取资源id的工具类
@@ -184,7 +197,7 @@ public class PluginLoadedApk {
         createPluginResource();
         // 插件Application的Base Context
         this.mPluginAppContext = new PluginContextWrapper(((Application) mHostContext)
-                .getBaseContext(), mPluginPackageName, true);
+                .getBaseContext(), this, true);
         // 注册静态广播
         installStaticReceiver();
     }
@@ -193,16 +206,14 @@ public class PluginLoadedApk {
      * 动态注册插件中的静态Receiver
      */
     private void installStaticReceiver() {
-        if (mPluginPackageInfo == null || mHostContext == null) {
-            return;
-        }
+
         Map<String, PluginPackageInfo.ReceiverIntentInfo> mReceiverIntentInfos =
                 mPluginPackageInfo.getReceiverIntentInfos();
         if (mReceiverIntentInfos != null) {
-            Set<Map.Entry<String, PluginPackageInfo.ReceiverIntentInfo>> mEntrys =
+            Set<Map.Entry<String, PluginPackageInfo.ReceiverIntentInfo>> mEntries =
                     mReceiverIntentInfos.entrySet();
             Context mGlobalContext = mHostContext.getApplicationContext();
-            for (Map.Entry<String, PluginPackageInfo.ReceiverIntentInfo> mEntry : mEntrys) {
+            for (Map.Entry<String, PluginPackageInfo.ReceiverIntentInfo> mEntry : mEntries) {
                 PluginPackageInfo.ReceiverIntentInfo mReceiverInfo = mEntry.getValue();
                 if (mReceiverInfo != null) {
                     try {
@@ -250,6 +261,10 @@ public class PluginLoadedApk {
                         mHostContext.getApplicationInfo().sourceDir);
                 PluginDebugLog.runtimeLog(TAG, "--- Resource merging into plugin @ " + mPluginPackageInfo.getPackageName());
             }
+            // 添加系统Webview资源, Android L+
+            if (mPluginPackageInfo.isNeedAddWebviewResource()) {
+                addWebviewAssetPath(am);
+            }
 
             mPluginAssetManager = am;
         } catch (Exception e) {
@@ -273,6 +288,100 @@ public class PluginLoadedApk {
     }
 
     /**
+     * 添加Webview的AssetPath到插件资源池
+     * 只有5.0以上设备使用, select下拉，长按复制才会有问题
+     *
+     * <href>https://github.com/Qihoo360/RePlugin/blob/615cabf1b9d0e1f3e0d38c1ef1bb5a08dffa0ce5/replugin-sample/plugin/plugin-webview/app/src/main/java/com/qihoo360/replugin/sample/webview/utils/WebViewResourceHelper.java</href>
+     */
+    private void addWebviewAssetPath(AssetManager assetManager) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            String webAsset = getWebViewAssetPath();
+            if (TextUtils.isEmpty(webAsset)) {
+                PluginDebugLog.runtimeFormatLog(TAG, "--- webview resources not found for plugin @%s", webAsset,
+                        mPluginPackageInfo.getPackageName());
+                return;
+            }
+
+            Class<?>[] paramTypes = new Class[]{String.class};
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                try {
+                    // 7.0以上添加webview为SharedLibrary, 否则会存在packageID冲突
+                    ReflectionUtils.on(assetManager).call("addAssetPathAsSharedLibrary", sMethods,
+                            paramTypes, webAsset);
+                    PluginDebugLog.runtimeFormatLog(TAG, "--- Add webview resources %s into plugin @%s for above nougat", webAsset,
+                            mPluginPackageInfo.getPackageName());
+                    return;
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            // 7.0以下系统
+            try {
+                ReflectionUtils.on(assetManager).call("addAssetPath", sMethods, paramTypes, webAsset);
+                PluginDebugLog.runtimeFormatLog(TAG, "--- Add webview resources %s into plugin @%s for below nougat", webAsset,
+                        mPluginPackageInfo.getPackageName());
+            } catch (Exception e) {
+                ErrorUtil.throwErrorIfNeed(e);
+            }
+        }
+    }
+
+    /**
+     * 获取系统Webview的Asset资源路径
+     */
+    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
+    private String getWebViewAssetPath() {
+        // Android L上WebViewFactory才存在getLoadedPackageInfo()方法
+        // see http://androidxref.com/5.0.0_r2/xref/frameworks/base/core/java/android/webkit/WebViewFactory.java
+        try {
+            // 初始化WebviewProvider
+            ReflectionUtils.on("android.webkit.WebViewFactory").call("getProvider");
+            // 获取Webview资源路径
+            PackageInfo pi = WebViewFactory.getLoadedPackageInfo();
+            if (pi != null && pi.applicationInfo != null && !TextUtils.isEmpty(pi.applicationInfo.sourceDir)) {
+                return pi.applicationInfo.sourceDir;
+            }
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
+
+        String webPkgName = "";
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            // 通过webview_provider读取
+            webPkgName = Settings.Global.getString(mHostContext.getContentResolver(), "webview_provider");
+        } else {
+            try {
+                // 5.0~6.0存在该方法
+                webPkgName = ReflectionUtils.on("android.webkit.WebViewFactory").call("getWebViewPackageName").get();
+            } catch (Throwable tr) {
+                ErrorUtil.throwErrorIfNeed(tr);
+            }
+            if (TextUtils.isEmpty(webPkgName)) {
+                int resId = mHostResource.getIdentifier("config_webViewPackageName", "string", "android");
+                if (resId > 0) {
+                    webPkgName = mHostResource.getString(resId);
+                }
+            }
+        }
+
+        if (TextUtils.isEmpty(webPkgName)) {
+            // hard code the webview pkgName
+            webPkgName = "com.google.android.webview";
+        }
+
+        try {
+            PackageManager pm = mHostContext.getPackageManager();
+            PackageInfo pi = pm.getPackageInfo(webPkgName, PackageManager.GET_SHARED_LIBRARY_FILES);
+            if (pi != null && pi.applicationInfo != null && !TextUtils.isEmpty(pi.applicationInfo.sourceDir)) {
+                return pi.applicationInfo.sourceDir;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "";
+    }
+
+    /**
      * 创建插件的ClassLoader
      *
      * @return true:创建成功，false:创建失败
@@ -285,7 +394,7 @@ public class PluginLoadedApk {
         }
         PluginDebugLog.runtimeLog(TAG, "createClassLoader");
         File optDir = getDataDir(mHostContext, mPluginPackageName);
-        if (optDir != null && isOptDirAccessbile(optDir)) {
+        if (optDir != null && isOptDirAccessible(optDir)) {
 
             FileUtils.checkOtaFileValid(optDir, new File(mPluginPath));  // 创建ClassLoader之前check上次生成的oat文件是否损坏
             mPluginClassLoader = new DexClassLoader(mPluginPath, optDir.getAbsolutePath(),
@@ -329,7 +438,7 @@ public class PluginLoadedApk {
         PluginDebugLog.runtimeLog(TAG, "createNewClassLoader");
         File optDir = getDataDir(mHostContext, mPluginPackageName);
         mParent = mPluginPackageInfo.isIndividualMode() ? mHostClassLoader.getParent() : mHostClassLoader;
-        if (optDir != null && isOptDirAccessbile(optDir)) {
+        if (optDir != null && isOptDirAccessible(optDir)) {
             DexClassLoader classLoader = sAllPluginClassLoader.get(mPluginPackageName);
             if (classLoader == null) {
                 FileUtils.checkOtaFileValid(optDir, new File(mPluginPath));  //检测oat文件是否损坏
@@ -356,6 +465,11 @@ public class PluginLoadedApk {
      * 将插件中的类从主工程中删除
      */
     void ejectClassLoader() {
+        if (Neptune.SEPARATED_CLASSLOADER) {
+            PluginDebugLog.runtimeLog(TAG, "separated classloader mode, no need to eject classloader");
+            return;
+        }
+
         if (mPluginClassLoader != null && mPluginPackageInfo.isClassNeedInject()) {
             PluginDebugLog.runtimeLog(TAG, "--- Class eject @ " + mPluginPackageInfo.getPackageName());
             ClassLoaderInjectHelper.eject(mHostContext.getClassLoader(), mPluginClassLoader);
@@ -365,7 +479,7 @@ public class PluginLoadedApk {
     /**
      * dexopt的目录是否可访问
      */
-    private boolean isOptDirAccessbile(File optDir) {
+    private boolean isOptDirAccessible(File optDir) {
         return optDir.exists() && optDir.canRead() && optDir.canWrite();
     }
 
@@ -374,7 +488,7 @@ public class PluginLoadedApk {
      *
      * @return true：创建Application成功，false:创建失败
      */
-    boolean makeApplication() {
+    synchronized boolean makeApplication() {
         if (!isPluginInit || mPluginApplication == null) {
             String className = mPluginPackageInfo.getApplicationClassName();
             if (TextUtils.isEmpty(className)) {
@@ -415,7 +529,9 @@ public class PluginLoadedApk {
                 ErrorUtil.throwErrorIfNeed(e);
                 PluginDebugLog.runtimeLog(TAG, "register ComponentCallbacks for plugin failed, pkgName=" + mPluginPackageName);
             }
-
+            // 安装插件Provider
+            installContentProviders();
+            // 执行Application#onCreate()方法
             try {
                 mPluginApplication.onCreate();
             } catch (Throwable t) {
@@ -437,6 +553,55 @@ public class PluginLoadedApk {
         return true;
     }
 
+    private boolean isSupportProvider() {
+        // 全局开关打开或插件自身配置打开
+        return Neptune.getConfig().isSupportProvider() ||
+                (mPluginPackageInfo != null && mPluginPackageInfo.isSupportProvider());
+    }
+
+    /**
+     * 安装插件的Provider
+     */
+    private void installContentProviders() {
+        if (!isSupportProvider()) {
+            PluginDebugLog.runtimeLog(TAG, "Not support provider for plugin " + mPluginPackageName);
+            return;
+        }
+
+        mPluginContentResolver = new PluginContentResolver(mHostContext);
+        Map<String, PluginPackageInfo.ProviderIntentInfo> mProviderIntentInfos =
+                mPluginPackageInfo.getProviderIntentInfos();
+        if (mProviderIntentInfos != null) {
+            Set<Map.Entry<String, PluginPackageInfo.ProviderIntentInfo>> mEntries =
+                    mProviderIntentInfos.entrySet();
+            for (Map.Entry<String, PluginPackageInfo.ProviderIntentInfo> mEntry : mEntries) {
+                PluginPackageInfo.ProviderIntentInfo mProviderInfo = mEntry.getValue();
+                if (mProviderInfo != null) {
+                    try {
+                        ContentProvider provider = ContentProvider.class.cast(mPluginClassLoader.
+                                loadClass(mProviderInfo.mInfo.name).newInstance());
+                        if (provider != null) {
+                            // 调用attachInfo方法
+                            provider.attachInfo(mPluginAppContext, mProviderInfo.mInfo);
+                            mProviderMaps.put(mProviderInfo.mInfo.authority, provider);
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 在插件中查找可以处理这个Uri的Provider
+     */
+    public ContentProvider getContentProvider(Uri uri) {
+        if (uri == null || TextUtils.isEmpty(uri.getAuthority())) {
+            return null;
+        }
+        return mProviderMaps.get(uri.getAuthority());
+    }
 
     /**
      * 反射获取ActivityThread中的Instrumentation对象
@@ -501,6 +666,14 @@ public class PluginLoadedApk {
     }
 
     /**
+     * 拷贝Native so库到插件libs目录
+     */
+    private void tryToCopyNativeLib() {
+        FileUtils.installNativeLibrary(mHostContext, mPluginPath,
+                mPluginPackageInfo.getPackageInfo(), mPluginPackageInfo.getNativeLibraryDir());
+    }
+
+    /**
      * 更新资源配置
      *
      * @param newConfig 新的资源配置信息
@@ -536,7 +709,7 @@ public class PluginLoadedApk {
                                             + libraryInfo.packageName);
                             PluginPackageManager.notifyClientPluginException(mHostContext,
                                     libraryInfo.packageName,
-                                    "Apk file not exist!");
+                                    "Apk file not exist when handle dependencies!");
                             return false;
                         }
                         PluginDebugLog.runtimeLog(TAG,
@@ -587,7 +760,7 @@ public class PluginLoadedApk {
                     libraryPackageInfo = PluginPackageManagerNative.getInstance(mHostContext)
                             .getPluginPackageInfo(mHostContext, libraryInfo);
                     if (libraryPackageInfo == null) {
-                        PluginDebugLog.warningLog(TAG, "handleNewDependencies get libraryPackageInfo null " + libraryInfo.packageName);
+                        PluginDebugLog.runtimeLog(TAG, "handleNewDependencies get libraryPackageInfo null " + libraryInfo.packageName);
                         return false;
                     }
 
@@ -602,7 +775,7 @@ public class PluginLoadedApk {
                                             + libraryInfo.packageName);
                             PluginPackageManager.notifyClientPluginException(mHostContext,
                                     libraryInfo.packageName,
-                                    "Apk file not exist!");
+                                    "Apk file not exist when handle dependencies!");
                             return false;
                         }
 
@@ -676,7 +849,19 @@ public class PluginLoadedApk {
             return mPluginPackageInfo.getActivityInfo(activityClsName);
         }
         return null;
+    }
 
+    /**
+     * 通过authority获取ProviderInfo
+     *
+     * @param authority  需要获取ProviderInfo的authority名称
+     * @return 返回对应的ProviderInfo，如果没有找到则返回null
+     */
+    public ProviderInfo getProviderInfoByAuthority(String authority) {
+        if (mPluginPackageInfo != null) {
+            return mPluginPackageInfo.resolveProvider(authority);
+        }
+        return null;
     }
 
     public void quitApp(boolean force) {
@@ -790,6 +975,16 @@ public class PluginLoadedApk {
     }
 
     /**
+     * 获取插件的ContentResolver
+     */
+    public ContentResolver getPluginContentResolver() {
+        if (isSupportProvider()) {
+            return mPluginContentResolver;
+        }
+        return null;
+    }
+
+    /**
      * 获取主工程的Context
      */
     public Context getHostContext() {
@@ -876,5 +1071,18 @@ public class PluginLoadedApk {
      */
     void changeLaunchingIntentStatus(boolean isLaunchingIntent) {
         this.isLaunchingIntent = isLaunchingIntent;
+    }
+
+    /**
+     * 查看插件是否创建了 ClassLoader
+     *
+     * @param packageName 包名
+     * @return true or false
+     */
+    static boolean isPluginClassLoaderLoaded(String packageName) {
+        if (packageName != null) {
+            return sAllPluginClassLoader.containsKey(packageName);
+        }
+        return false;
     }
 }

@@ -41,6 +41,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 
 import org.qiyi.pluginlibrary.context.PluginContextWrapper;
+import org.qiyi.pluginlibrary.runtime.PluginLoadedApk;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -53,7 +54,6 @@ import java.io.FileOutputStream;
  * 考虑到会用在 Fragment 插件化中，所以继承自 FragmentActivity
  */
 public class ActivityWrapper extends FragmentActivity {
-    private String mPkgName;  // 插件包名
     private PluginContextWrapper mPluginContext; // 插件Context
     private Activity mOriginActivity; //原生的宿主Activity
     /**
@@ -61,9 +61,8 @@ public class ActivityWrapper extends FragmentActivity {
      */
     private FragmentActivity mOriginFragmentActivity;
 
-    public ActivityWrapper(Activity origin, String pkgName) {
-        mPkgName = pkgName;
-        mPluginContext = new PluginContextWrapper(origin.getBaseContext(), pkgName);
+    public ActivityWrapper(Activity origin, PluginLoadedApk loadedApk) {
+        mPluginContext = new PluginContextWrapper(origin.getBaseContext(), loadedApk);
         mOriginActivity = origin;
         if (mOriginActivity instanceof FragmentActivity) {
             mOriginFragmentActivity = (FragmentActivity) mOriginActivity;

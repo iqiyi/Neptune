@@ -18,7 +18,7 @@ import android.widget.Toast;
 
 import org.qiyi.pluginlibrary.Neptune;
 import org.qiyi.pluginlibrary.install.IInstallCallBack;
-import org.qiyi.pluginlibrary.pm.IPluginUninstallCallBack;
+import org.qiyi.pluginlibrary.install.IUninstallCallBack;
 import org.qiyi.pluginlibrary.pm.PluginLiteInfo;
 import org.qiyi.pluginlibrary.utils.FileUtils;
 
@@ -142,9 +142,10 @@ public class MainActivity extends AppCompatActivity {
      * 卸载插件
      */
     @OnClick(R.id.uninstall_plugin) void uninstallPlugin() {
-        Neptune.uninstall(this, SAMPLE_PLUGIN_PKG, new IPluginUninstallCallBack.Stub() {
+        Neptune.uninstall(this, SAMPLE_PLUGIN_PKG, new IUninstallCallBack.Stub() {
+
             @Override
-            public void onPluginUninstall(String packageName, int resultCode) throws RemoteException {
+            public void onPackageUninstalled(PluginLiteInfo info, int resultCode) throws RemoteException {
                 Toast.makeText(MainActivity.this, "sample plugin uninstall success", Toast.LENGTH_SHORT).show();
                 updatePluginState();
             }

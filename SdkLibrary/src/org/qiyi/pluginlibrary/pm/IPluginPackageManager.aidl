@@ -2,8 +2,9 @@
 package org.qiyi.pluginlibrary.pm;
 import org.qiyi.pluginlibrary.pm.PluginLiteInfo;
 import org.qiyi.pluginlibrary.install.IInstallCallBack;
+import org.qiyi.pluginlibrary.install.IUninstallCallBack;
 import org.qiyi.pluginlibrary.install.IActionFinishCallback;
-import org.qiyi.pluginlibrary.pm.IPluginUninstallCallBack;
+import org.qiyi.pluginlibrary.install.IUninstallCallBack;
 import org.qiyi.pluginlibrary.pm.PluginPackageInfo;
 
 interface IPluginPackageManager {
@@ -20,7 +21,9 @@ interface IPluginPackageManager {
 
     oneway void install(in PluginLiteInfo info, IInstallCallBack listener);
 
-    boolean uninstall(in PluginLiteInfo info);
+    oneway void deletePackage(in PluginLiteInfo info, IUninstallCallBack listener);
+
+    oneway void uninstall(in PluginLiteInfo info, IUninstallCallBack listener);
 
     oneway void packageAction(in PluginLiteInfo info, IInstallCallBack callBack);
 

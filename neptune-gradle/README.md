@@ -14,8 +14,9 @@ buildscript {
     }
     
     dependencies {
-            classpath 'com.android.tools.build:gradle:2.3.3'
-            classpath 'com.iqiyi.tools.build:neptune-gradle:1.1.0'  // Add the plugin classpath
+            classpath 'com.android.tools.build:gradle:3.4.0'
+            // Add the plugin classpath, support lastest AGP 3.4.0
+            classpath 'com.iqiyi.tools.build:neptune-gradle:1.3.0'
         }
 }
 ```

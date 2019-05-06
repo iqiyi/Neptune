@@ -20,6 +20,7 @@ package org.qiyi.pluginlibrary.component;
 import android.app.Service;
 import android.content.Intent;
 import android.content.res.Configuration;
+import android.os.Binder;
 import android.os.IBinder;
 import android.os.Process;
 import android.text.TextUtils;
@@ -84,31 +85,37 @@ public class ServiceProxy1 extends Service {
 
     public PluginServiceWrapper loadTargetService(String targetPackageName, String targetClassName) {
         PluginServiceWrapper currentPlugin = findPluginService(targetPackageName, targetClassName);
-        PluginDebugLog.log(TAG, "ServiceProxy1>>>>>loadTargetService()" + "target:"
+        PluginDebugLog.log(TAG, "ServiceProxy1>>>>>loadTargetService() target:"
                 + (currentPlugin == null ? "null" : currentPlugin.getClass().getName()));
         if (currentPlugin == null) {
-            PluginDebugLog.log(TAG, "ServiceProxy1>>>>ProxyEnvironment.hasInstance:"
-                    + PluginManager.isPluginLoaded(targetPackageName) + ";targetPackageName:" + targetPackageName);
+            PluginDebugLog.log(TAG, "ServiceProxy1>>>>loadTargetService plugin has loaded:"
+                    + PluginManager.isPluginLoaded(targetPackageName) + "; targetPackageName:" + targetPackageName);
 
             Service targetService;
             try {
                 PluginLoadedApk mLoadedApk = PluginManager.getPluginLoadedApkByPkgName(targetPackageName);
                 if (null == mLoadedApk) {
+                    PluginDebugLog.log(TAG, "ServiceProxy1>>>>loadTargetService pluginLoadedApk not found for @"
+                            + targetPackageName);
                     return null;
                 }
                 targetService = ((Service) mLoadedApk.getPluginClassLoader()
                         .loadClass(targetClassName).newInstance());
                 PluginContextWrapper actWrapper = new PluginContextWrapper(ServiceProxy1.this.getBaseContext(),
-                        targetPackageName, true);
+                        mLoadedApk, true);
                 ReflectionUtils.on(targetService).call("attach", sMethods, null, actWrapper,
                         ReflectionUtils.getFieldValue(this, "mThread"), targetClassName,
                         ReflectionUtils.getFieldValue(this, "mToken"), mLoadedApk.getPluginApplication(),
                         ReflectionUtils.getFieldValue(this, "mActivityManager"));
+
+                PluginDebugLog.log(TAG, "load targetService success, pkgName: " + targetPackageName
+                        + ", clsName: " + targetClassName);
             } catch (Exception e) {
                 ErrorUtil.throwErrorIfNeed(e);
                 PluginManager.deliver(this, false, targetPackageName,
                         ErrorType.ERROR_PLUGIN_LOAD_TARGET_SERVICE);
-                PluginDebugLog.log(TAG, "加载targetService失败: " + targetPackageName);
+                PluginDebugLog.log(TAG, "load targetService failed, pkgName: " + targetPackageName
+                        + ", clsName: " + targetClassName);
                 return null;
             }
 
@@ -119,13 +126,14 @@ public class ServiceProxy1 extends Service {
 
                 PServiceSupervisor.addServiceByIdentity(targetPackageName + "." + targetClassName, currentPlugin);
 
-                PluginDebugLog.log(TAG, "ServiceProxy1>>>start service, pkgName: " + targetPackageName + ", clsName: "
-                        + targetClassName);
+                PluginDebugLog.log(TAG, "ServiceProxy1>>>start service, pkgName: " + targetPackageName
+                        + ", clsName: " + targetClassName);
             } catch (Exception e) {
                 ErrorUtil.throwErrorIfNeed(e);
                 PluginManager.deliver(this, false, targetPackageName,
                         ErrorType.ERROR_PLUGIN_CREATE_TARGET_SERVICE);
-                PluginDebugLog.log(TAG, "调用targetService#onCreate失败: " + targetPackageName);
+                PluginDebugLog.log(TAG, "call targetService#onCreate failed, pkgName: " + targetPackageName
+                        + ", clsName: " + targetClassName);
                 return null;
             }
         }
@@ -147,9 +155,10 @@ public class ServiceProxy1 extends Service {
         if (currentPlugin != null && currentPlugin.getCurrentService() != null) {
             currentPlugin.updateBindCounter(1);
             return currentPlugin.getCurrentService().onBind(paramIntent);
-        } else {
-            return null;
         }
+        // 返回fake binder，否则后续的bindService都收不到ServiceConnection回调
+        PluginDebugLog.log(TAG, "ServiceProxy1>>>>>onBind(): return fake binder due to currentPlugin is null, pkg: " + targetPackageName);
+        return null;
     }
 
     @Override

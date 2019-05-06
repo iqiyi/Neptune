@@ -63,9 +63,9 @@ public class NotifyCenter {
     /**
      * 通知 Service 绑定成功
      */
-    public static void notifyServiceConnected(Context context, Class<? extends Service> service) {
+    public static void notifyServiceConnected(Context context, String serviceName) {
         Intent intent = new Intent(IntentConstant.ACTION_SERVICE_CONNECTED);
-        intent.putExtra(IntentConstant.EXTRA_SERVICE_CLASS, service);
+        intent.putExtra(IntentConstant.EXTRA_SERVICE_CLASS, serviceName);
         // 在插件 activity 进程被回收以后恢复过程中，需要保证有序，具体参见恢复逻辑
         context.sendOrderedBroadcast(intent, null);
     }

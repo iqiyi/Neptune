@@ -64,7 +64,7 @@ public class TransRecoveryActivity1 extends Activity {
         @Override
         public void run() {
             PluginDebugLog.runtimeLog(TAG, "mock ServiceConnected event.");
-            NotifyCenter.notifyServiceConnected(TransRecoveryActivity1.this, null);
+            NotifyCenter.notifyServiceConnected(TransRecoveryActivity1.this, "");
         }
     };
 
@@ -77,13 +77,19 @@ public class TransRecoveryActivity1 extends Activity {
         mPluginPackageName = packageAndClass[0];
         mPluginClassName = packageAndClass[1];
         PluginDebugLog.runtimeFormatLog(TAG, "TransRecoveryActivity0 onCreate....%s %s", mPluginPackageName, mPluginClassName);
+
+        if (mPluginPackageName == null) {
+            finish();
+            return;
+        }
+
         mRecoveryCallback.beforeRecovery(this, mPluginPackageName, mPluginClassName);
 
         // PPMS 可能未连接，getPackageInfo 会直接读取 SharedPreference
         PluginLiteInfo packageInfo = PluginPackageManagerNative.getInstance(this).getPackageInfo(mPluginPackageName);
         boolean enableRecovery = packageInfo != null && packageInfo.enableRecovery;
 
-        if (!enableRecovery || mPluginPackageName == null) {
+        if (!enableRecovery) {
             finish();
             return;
         }
@@ -93,7 +99,7 @@ public class TransRecoveryActivity1 extends Activity {
         mLaunchPluginReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(final Context context, Intent intent) {
-                PluginDebugLog.runtimeFormatLog(TAG, "LaunchPluginReceiver#onReceive %s %s", mPluginClassName, intent.getSerializableExtra(IntentConstant.EXTRA_SERVICE_CLASS));
+                PluginDebugLog.runtimeFormatLog(TAG, "LaunchPluginReceiver#onReceive %s %s", mPluginClassName, intent.getStringExtra(IntentConstant.EXTRA_SERVICE_CLASS));
                 boolean ppmsReady = PluginPackageManagerNative.getInstance(context).isConnected();
                 boolean hostReady = mRecoveryCallback.beforeLaunch(context, mPluginPackageName, mPluginClassName);
                 if (ppmsReady && hostReady) {

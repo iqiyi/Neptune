@@ -70,5 +70,5 @@ dependencies {
     annotationProcessor "com.jakewharton:butterknife-compiler:${BUTTER_KNIFE_VERSION}"
 
     //implementation project(":SdkLibrary")
-    implementation "org.qiyi.video:neptune:2.5.0"
+    implementation "org.qiyi.video:neptune:${NEPTUNE_LIBRARY_VERSION}"
 }

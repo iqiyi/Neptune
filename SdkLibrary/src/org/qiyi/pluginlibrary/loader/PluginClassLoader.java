@@ -40,7 +40,6 @@ public class PluginClassLoader extends DexClassLoader {
         super(dexPath, optimizedDirectory, librarySearchPath, parent);
         this.pkgName = packageInfo.getPackageName();
         this.dependencies = new ArrayList<>();
-
         MultiDex.install(packageInfo, dexPath, this);
     }
 
@@ -60,7 +59,20 @@ public class PluginClassLoader extends DexClassLoader {
             }
         }
         // If still not found, find in this class loader
-        return super.findClass(name);
+        try {
+            return super.findClass(name);
+        } catch (ClassNotFoundException e) {
+            StringBuilder sb = new StringBuilder("tried ClassLoaders ");
+            if (dependencies.isEmpty()) {
+                sb.append("none;");
+            } else {
+                for (DexClassLoader dependency : dependencies) {
+                    sb.append(dependency.toString());
+                    sb.append(";");
+                }
+            }
+            throw new ClassNotFoundException(sb.toString(), e);
+        }
     }
 
     /**

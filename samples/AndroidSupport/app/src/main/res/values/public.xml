@@ -1155,33 +1155,33 @@
   <public type="integer" name="status_bar_notification_info_maxnum" id="0x7f0b0004" />
 
   <!--fresco 如果插件使用了fresco,则需要此部分 -->
-  <!--<public type="attr" name="fadeDuration" id="0x7f010120"/>-->
-  <!--<public type="attr" name="backgroundImage" id="0x7f010121"/>-->
-  <!--<public type="attr" name="actualImageScaleType" id="0x7f010122"/>-->
-  <!--<public type="attr" name="failureImage" id="0x7f010123"/>-->
-  <!--<public type="attr" name="failureImageScaleType" id="0x7f010124"/>-->
-  <!--<public type="attr" name="placeholderImage" id="0x7f010125"/>-->
-  <!--<public type="attr" name="placeholderImageScaleType" id="0x7f010126"/>-->
-  <!--<public type="attr" name="overlayImage" id="0x7f010127"/>-->
-  <!--<public type="attr" name="pressedStateOverlayImage" id="0x7f010128"/>-->
-  <!--<public type="attr" name="progressBarAutoRotateInterval" id="0x7f010129"/>-->
-  <!--<public type="attr" name="progressBarImage" id="0x7f01012a"/>-->
-  <!--<public type="attr" name="progressBarImageScaleType" id="0x7f01012b"/>-->
-  <!--<public type="attr" name="retryImage" id="0x7f01012c"/>-->
-  <!--<public type="attr" name="retryImageScaleType" id="0x7f01012d"/>-->
-  <!--<public type="attr" name="roundAsCircle" id="0x7f01012e"/>-->
-  <!--<public type="attr" name="roundBottomLeft" id="0x7f01012f"/>-->
-  <!--<public type="attr" name="roundBottomRight" id="0x7f010130"/>-->
-  <!--<public type="attr" name="roundTopLeft" id="0x7f010131"/>-->
-  <!--<public type="attr" name="roundTopRight" id="0x7f010132"/>-->
-  <!--<public type="attr" name="roundWithOverlayColor" id="0x7f010133"/>-->
-  <!--<public type="attr" name="roundedCornerRadius" id="0x7f010134"/>-->
-  <!--<public type="attr" name="roundingBorderColor" id="0x7f010135"/>-->
-  <!--<public type="attr" name="roundingBorderPadding" id="0x7f010136"/>-->
-  <!--<public type="attr" name="roundingBorderWidth" id="0x7f010137"/>-->
-  <!--<public type="attr" name="viewAspectRatio" id="0x7f010138"/>-->
-  <!--<public type="attr" name="actualImageResource" id="0x7f010139"/>-->
-  <!--<public type="attr" name="actualImageUri" id="0x7f01013a"/>-->
+  <public type="attr" name="fadeDuration" id="0x7f010120"/>
+  <public type="attr" name="backgroundImage" id="0x7f010121"/>
+  <public type="attr" name="actualImageScaleType" id="0x7f010122"/>
+  <public type="attr" name="failureImage" id="0x7f010123"/>
+  <public type="attr" name="failureImageScaleType" id="0x7f010124"/>
+  <public type="attr" name="placeholderImage" id="0x7f010125"/>
+  <public type="attr" name="placeholderImageScaleType" id="0x7f010126"/>
+  <public type="attr" name="overlayImage" id="0x7f010127"/>
+  <public type="attr" name="pressedStateOverlayImage" id="0x7f010128"/>
+  <public type="attr" name="progressBarAutoRotateInterval" id="0x7f010129"/>
+  <public type="attr" name="progressBarImage" id="0x7f01012a"/>
+  <public type="attr" name="progressBarImageScaleType" id="0x7f01012b"/>
+  <public type="attr" name="retryImage" id="0x7f01012c"/>
+  <public type="attr" name="retryImageScaleType" id="0x7f01012d"/>
+  <public type="attr" name="roundAsCircle" id="0x7f01012e"/>
+  <public type="attr" name="roundBottomLeft" id="0x7f01012f"/>
+  <public type="attr" name="roundBottomRight" id="0x7f010130"/>
+  <public type="attr" name="roundTopLeft" id="0x7f010131"/>
+  <public type="attr" name="roundTopRight" id="0x7f010132"/>
+  <public type="attr" name="roundWithOverlayColor" id="0x7f010133"/>
+  <public type="attr" name="roundedCornerRadius" id="0x7f010134"/>
+  <public type="attr" name="roundingBorderColor" id="0x7f010135"/>
+  <public type="attr" name="roundingBorderPadding" id="0x7f010136"/>
+  <public type="attr" name="roundingBorderWidth" id="0x7f010137"/>
+  <public type="attr" name="viewAspectRatio" id="0x7f010138"/>
+  <public type="attr" name="actualImageResource" id="0x7f010139"/>
+  <public type="attr" name="actualImageUri" id="0x7f01013a"/>
   <!--<public type="attr" name="actualPackageName" id="0x7f01013b"/>-->
 
   <!--lottie 库资源部分-->

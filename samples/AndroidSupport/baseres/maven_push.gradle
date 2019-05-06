@@ -2,15 +2,15 @@ apply plugin: 'maven'
 apply plugin: 'signing'
 
 def getRepositoryUrl() {
-    return hasProperty('NEXUS_REPO') ? NEXUS_REPO : "http://maven.mbd.qiyi.domain/nexus/content/repositories/mbd-vertical/"
+    return hasProperty('NEXUS_REPO') ? NEXUS_REPO : ""
 }
 
 def getRepositoryUsername() {
-    return hasProperty('NEXUS_USERNAME') ? NEXUS_USERNAME : "mbdvertical"
+    return hasProperty('NEXUS_USERNAME') ? NEXUS_USERNAME : ""
 }
 
 def getRepositoryPassword() {
-    return hasProperty('NEXUS_PASSWORD') ? NEXUS_PASSWORD : "mbdvertical"
+    return hasProperty('NEXUS_PASSWORD') ? NEXUS_PASSWORD : ""
 }
 
 def isReleaseBuild() {

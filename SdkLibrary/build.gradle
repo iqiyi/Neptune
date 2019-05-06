@@ -1,17 +1,18 @@
 apply plugin: 'com.android.library'
 
-buildscript {
-    repositories {
-        jcenter()
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:2.3.3'
-    }
-}
+//buildscript {
+//    repositories {
+//        jcenter()
+//    }
+//    dependencies {
+//        classpath 'com.android.tools.build:gradle:3.1.4'
+//    }
+//}
 
 dependencies {
-    compileOnly files('libs/android-26.jar')
-    compileOnly files('libs/android-support-26.1.0.jar')
+    compileOnly files('libs/android-27.jar')
+    // TODO upgrade to version 27.1.1
+    compileOnly files('libs/android_support_27.1.1.jar')
 }
 
 
@@ -75,10 +76,10 @@ preBuild.doLast {
         e.printStackTrace()
     }
 }
-// 依赖本地的android-26.jar
+// 依赖本地的android-27.jar
 gradle.projectsEvaluated {
     tasks.withType(JavaCompile) {
-        options.compilerArgs.add('-Xbootclasspath/p:libs/android-26.jar')
+        options.compilerArgs.add('-Xbootclasspath/p:libs/android-27.jar')
     }
 }
 

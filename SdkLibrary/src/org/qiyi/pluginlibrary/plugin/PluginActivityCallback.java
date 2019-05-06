@@ -54,6 +54,10 @@ public interface PluginActivityCallback {
 
     boolean callOnKeyDown(int keyCode, KeyEvent event);
 
+    void callOnPictureInPictureModeChanged(boolean isInPictureInPictureMode, Configuration newConfig);
+
+    void callOnPictureInPictureModeChanged(boolean isInPictureInPictureMode);
+
     void callDump(String prefix, FileDescriptor fd, PrintWriter writer, String[] args);
 
     void callOnPostResume();

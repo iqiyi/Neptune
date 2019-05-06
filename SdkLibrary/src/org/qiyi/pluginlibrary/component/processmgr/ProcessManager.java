@@ -25,8 +25,9 @@ import android.content.Context;
  */
 public class ProcessManager {
 
-    private static final String PROXY_PROCESS1 = ":plugin1";
-    private static final String PROXY_PROCESS2 = ":plugin2";
+    public static final String PROXY_PROCESS1 = ":plugin1";
+    public static final String PROXY_PROCESS2 = ":plugin2";
+    public static final String PROXY_DOWNLOADER = ":downloader";
     private static IProcessSelector sOuterSelector;
 
     /**

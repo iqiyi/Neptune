@@ -146,7 +146,7 @@ def verifyRSymbol(File publicXml, File RSymbol) {
     }
     println "verify R.txt file pass? ${verified}, notMatchCnt=${notMatchCnt}"
     if (!verified) {
-//        throw new GradleException("ids in public.xml not equals to generated R.txt")
+        throw new GradleException("ids in public.xml not equals to generated R.txt")
     }
 }
 

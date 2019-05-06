@@ -42,12 +42,7 @@ public class DexOptimizer {
 
     public static boolean optimize(File dexFile, File optimizedDir,
                                    boolean useInterpretMode, ResultCallback cb) {
-        String isa = null;
-        try {
-            isa = FileUtils.getCurrentInstructionSet();
-        } catch (Exception e) {
-            isa = null;
-        }
+        String isa = FileUtils.getCurrentInstructionSet();
         OptimizeWorker worker = new OptimizeWorker(dexFile, optimizedDir, useInterpretMode, isa, cb);
         if (!worker.run()) {
             return false;

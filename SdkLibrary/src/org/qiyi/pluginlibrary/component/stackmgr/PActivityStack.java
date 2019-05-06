@@ -19,7 +19,7 @@ package org.qiyi.pluginlibrary.component.stackmgr;
 
 import android.app.Activity;
 
-import org.qiyi.pluginlibrary.utils.FileUtils;
+import org.qiyi.pluginlibrary.utils.ContextUtils;
 
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -81,7 +81,7 @@ public class PActivityStack {
         while (iterator.hasNext()) {
             Activity activity = iterator.next();
             if (activity != null && needFinish
-                    && !FileUtils.isFinished(activity)) {
+                    && !ContextUtils.isFinished(activity)) {
                 activity.finish();
             }
             iterator.remove();

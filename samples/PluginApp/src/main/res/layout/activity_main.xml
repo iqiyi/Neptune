@@ -9,5 +9,12 @@
     <android.support.v7.widget.RecyclerView
         android:id="@+id/recycler_view"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="0dp"
+        android:layout_weight="1"/>
+
+    <TextView
+        android:id="@+id/time_ticker"
+        android:layout_width="match_parent"
+        android:layout_height="32dp"
+        android:gravity="center"/>
 </LinearLayout>

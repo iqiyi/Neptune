@@ -1,11 +1,11 @@
 package com.iqiyi.plugin.sample;
-
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
+import android.widget.TextView;
 
 import com.facebook.common.logging.FLog;
 import com.facebook.drawee.backends.pipeline.Fresco;
@@ -15,7 +15,7 @@ import com.facebook.drawee.backends.pipeline.Fresco;
 import java.util.Arrays;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity{
+public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
 
     private static final String[] URL_LINKS = {
@@ -44,12 +44,9 @@ public class MainActivity extends AppCompatActivity{
         mAdapter = new ImageAdapter(this, mImageUrls);
         mRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         mRecyclerView.setAdapter(mAdapter);
+
+        TextView ticker = findViewById(R.id.time_ticker);
+        ticker.setText(BuildConfig.BUILD_TIME);
     }
 
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        Log.i(TAG, "MainActivity onResume() called");
-    }
 }

@@ -17,8 +17,10 @@
  */
 package org.qiyi.pluginlibrary.context;
 
+import android.annotation.NonNull;
 import android.annotation.TargetApi;
 import android.content.ComponentName;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.Intent;
@@ -89,6 +91,15 @@ public abstract class CustomContextWrapper extends ContextWrapper implements Int
 
     private static File makeBackupFile(File prefsFile) {
         return new File(prefsFile.getPath() + ".bak");
+    }
+
+    @Override
+    public ContentResolver getContentResolver() {
+        ContentResolver cr = getPluginLoadedApk().getPluginContentResolver();
+        if (cr == null) {
+            cr = super.getContentResolver();
+        }
+        return cr;
     }
 
     @Override
@@ -821,5 +832,5 @@ public abstract class CustomContextWrapper extends ContextWrapper implements Int
     /**
      * 获取插件的PluginLoadedApk
      */
-    protected abstract PluginLoadedApk getPluginLoadedApk();
+    @NonNull protected abstract PluginLoadedApk getPluginLoadedApk();
 }

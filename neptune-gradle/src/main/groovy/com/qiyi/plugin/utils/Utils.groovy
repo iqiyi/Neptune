@@ -8,6 +8,12 @@ import java.security.MessageDigest
 
 class Utils {
 
+    public static boolean  isAgpAbove34() {
+        String version = Version.ANDROID_GRADLE_PLUGIN_VERSION
+        VersionNumber agpVersion = VersionNumber.parse(version)
+        return agpVersion >= VersionNumber.parse("3.4")
+    }
+
     public static boolean isAgpAbove3() {
         String version = Version.ANDROID_GRADLE_PLUGIN_VERSION
         VersionNumber agpVersion = VersionNumber.parse(version)

@@ -6,7 +6,9 @@ import com.android.builder.model.Version
 import com.qiyi.plugin.dex.RClassTransform
 import com.qiyi.plugin.hooker.TaskHookerManager
 import com.qiyi.plugin.task.InstallPlugin
-import com.qiyi.plugin.task.TaskFactory
+import com.qiyi.plugin.task.factory.TaskFactory
+import com.qiyi.plugin.task.TaskUtil
+import com.qiyi.plugin.task.factory.TaskFactory2
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -41,7 +43,7 @@ class QYPlugin implements Plugin<Project> {
                     versionName = variant.versionName
                     packagePath = packageName.replace('.'.charAt(0), File.separatorChar)
                 }
-
+                // 创建安装插件的Task
                 createInstallPluginTask(variant)
             }
 
@@ -63,16 +65,23 @@ class QYPlugin implements Plugin<Project> {
      */
     private void createInstallPluginTask(ApplicationVariantImpl variant) {
         if (pluginExt.hostPackageName != null && pluginExt.hostPackageName.length() > 0) {
-            TaskFactory taskFactory = new TaskFactory(project.getTasks())
-            InstallPlugin installTask = taskFactory.create(new InstallPlugin.ConfigAction(variant))
-            String assembleTaskName = variant.getAssemble().name
+            TaskFactory taskFactory
+            InstallPlugin installTask
+            if (pluginExt.agpVersion >= VersionNumber.parse("3.3")) {
+                taskFactory = new TaskFactory2(project.getTasks())
+                installTask = taskFactory.register(new InstallPlugin.CreationAction(variant)).get()
+            } else {
+                taskFactory = new TaskFactory(project.getTasks())
+                installTask = taskFactory.create(new InstallPlugin.ConfigAction(variant))
+            }
+            String assembleTaskName = TaskUtil.getAssembleTask(project, variant).name
             installTask.dependsOn(assembleTaskName)
         }
     }
 
     private void checkConfig() {
         if (!pluginExt.pluginMode) {
-            // not in plugin compile mode, close all the feature
+            // Not in plugin compile mode, close all the feature
             pluginExt.stripResource = false
             pluginExt.dexModify = false
         }

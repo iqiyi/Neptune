@@ -63,7 +63,7 @@ public class PluginSupportFragment extends Fragment implements IPluginBase {
                 if (!(host instanceof PluginFragmentHostCallback)) {
                     // 替换 mHost, 不能直接修改原来的 mHost，因为它在各个 Fragment 间共享
                     FragmentActivity activity = ReflectionUtils.on(host).get("mActivity");
-                    ActivityWrapper wrapper = new ActivityWrapper(activity, mPluginPackageName);
+                    ActivityWrapper wrapper = new ActivityWrapper(activity, loadedApk);
                     PluginFragmentHostCallback newHost = new PluginFragmentHostCallback((FragmentHostCallback<FragmentActivity>) host, wrapper);
                     ReflectionUtils.on(this).set("mHost", newHost);
                 }

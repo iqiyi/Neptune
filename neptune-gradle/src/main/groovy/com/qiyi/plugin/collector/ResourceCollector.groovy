@@ -1,20 +1,19 @@
 package com.qiyi.plugin.collector
 
-
 import com.android.build.gradle.api.ApkVariant
 import com.android.build.gradle.tasks.ProcessAndroidResources
 import com.android.builder.dependency.level2.AndroidDependency
 import com.android.builder.model.AndroidLibrary
 import com.android.builder.model.MavenCoordinates
-import com.qiyi.plugin.collector.dependence.AarDependenceInfo
-import com.qiyi.plugin.collector.dependence.DependenceInfo
-
-import com.qiyi.plugin.collector.res.ResourceEntry
-import com.qiyi.plugin.collector.res.StyleableEntry
 import com.google.common.collect.ArrayListMultimap
 import com.google.common.collect.ListMultimap
 import com.google.common.collect.Lists
 import com.qiyi.plugin.QYPluginExtension
+import com.qiyi.plugin.collector.dependence.AarDependenceInfo
+import com.qiyi.plugin.collector.dependence.DependenceInfo
+import com.qiyi.plugin.collector.res.ResourceEntry
+import com.qiyi.plugin.collector.res.StyleableEntry
+import org.gradle.api.GradleException
 import org.gradle.api.Project
 import org.gradle.util.VersionNumber
 
@@ -123,10 +122,7 @@ class ResourceCollector {
             }
         }
 
-        if (pluginExt.agpVersion >= VersionNumber.parse("3.0")) {
-            // 3.0.0+
-            prepareAndroidLibrary()
-        } else if (pluginExt.agpVersion >= VersionNumber.parse("2.3")) {
+        if (pluginExt.agpVersion >= VersionNumber.parse("2.3")) {
             // 2.3.3
             prepareAndroidDependency()
         } else {
@@ -145,8 +141,9 @@ class ResourceCollector {
         Set<AndroidLibrary> androidLibraries
         if (pluginExt.agpVersion >= VersionNumber.parse("3.0")) {
             // AGP 3.0.0, gather the dependencies with AndroidLibrary
-            DependencyCollector dependencyCollector = new DependencyCollector(project, apkVariant)
-            androidLibraries = dependencyCollector.androidLibraries
+            throw new GradleException("Not support for agp version ${pluginExt.agpVersion}")
+//            DependencyCollector dependencyCollector = new DependencyCollector(project, apkVariant)
+//            androidLibraries = dependencyCollector.androidLibraries
         } else {
             androidLibraries = processResTask.libraries
         }
@@ -180,7 +177,7 @@ class ResourceCollector {
     }
 
     /**
-     * 处理Android Gradle Plugin 2.x的依赖关系
+     * 处理Android Gradle Plugin 2.3.3+, 3.0.0+的依赖关系
      */
     private void prepareAndroidDependency() {
         println "prepareAndroidDependency() ..............."
@@ -195,7 +192,7 @@ class ResourceCollector {
         }
 
         androidDependencies.each {
-            println "${it.extractedFolder}, ${it.symbolFile}, ${it.jarFile}, ${it.artifactFile}"
+            println "${it.extractedFolder}, ${it.symbolFile}, ${it.jarFile}"
 
             def mavenCoordinates = it.coordinates as MavenCoordinates
             if (hostDependencies.contains("${mavenCoordinates.groupId}:${mavenCoordinates.artifactId}")) {
@@ -317,6 +314,13 @@ class ResourceCollector {
             def typeId = 0
             def entryId = 0
             typeId = lastType++
+            // 对 attr 排个序，liveshow 的编译环境，id 顺序不是按照 name 排序的，导致 R.styleable.xxx 数组内容错乱，读取 attribute 时可能丢失
+            pluginResources.get(it.resType).sort(new Comparator<ResourceEntry>() {
+                @Override
+                int compare(ResourceEntry r0, ResourceEntry r1) {
+                    return r0.resourceId - r1.resourceId
+                }
+            })
             pluginResources.get(it.resType).each {
                 it.setNewResourceId(pluginExt.packageId, typeId, entryId++)
             }

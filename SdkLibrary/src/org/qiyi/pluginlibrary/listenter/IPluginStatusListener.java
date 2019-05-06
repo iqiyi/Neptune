@@ -18,6 +18,8 @@
 package org.qiyi.pluginlibrary.listenter;
 
 
+import android.content.Intent;
+
 public interface IPluginStatusListener {
 
     /**
@@ -33,4 +35,11 @@ public interface IPluginStatusListener {
      * @param packageName 加载的插件包名
      */
     void onPluginReady(String packageName);
+
+    /**
+     * 点击插件入口加载插件成功后回调
+     * @param packageName   加载的插件包名
+     * @param launchIntent  启动插件的Intent
+     */
+    void onLaunchSuccess(String packageName, Intent launchIntent);
 }

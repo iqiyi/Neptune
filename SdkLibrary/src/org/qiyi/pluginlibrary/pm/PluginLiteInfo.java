@@ -60,8 +60,14 @@ public class PluginLiteInfo implements Parcelable {
     public String srcApkVersion = "";
     /* 是否启动插件的进程恢复功能，(由于插件可能未适配，需要这个开关) */
     public boolean enableRecovery;
-    /* 该插件的依赖插件包名列表, 用逗号分隔*/
+    /* 该插件的依赖插件包名列表, 用逗号分隔 */
     public String plugin_refs;
+    /* 插件安装错误码，0代表成功 */
+    public int statusCode;
+    /* 安装前先 delete package */
+    public boolean deletePackageBeforeInstall = true;
+    /* 是否使用独立进程安装插件 */
+    public boolean useInstallerProcess = false;
 
     public static final Creator<PluginLiteInfo> CREATOR = new Creator<PluginLiteInfo>() {
         @Override
@@ -94,6 +100,9 @@ public class PluginLiteInfo implements Parcelable {
             srcApkVersion = jObj.optString("srcApkVer");
             enableRecovery = jObj.optBoolean("enableRecovery");
             plugin_refs = jObj.optString("plugin_refs");
+            statusCode = jObj.optInt("statusCode");
+            deletePackageBeforeInstall = jObj.optBoolean("deletePackageBeforeInstall");
+            useInstallerProcess = jObj.optBoolean("useInstallerProcess");
         } catch (JSONException e) {
             // ignore
         }
@@ -112,6 +121,9 @@ public class PluginLiteInfo implements Parcelable {
         srcApkVersion = in.readString();
         enableRecovery = in.readInt() == 1;
         plugin_refs = in.readString();
+        statusCode = in.readInt();
+        deletePackageBeforeInstall = in.readInt() == 1;
+        useInstallerProcess = in.readInt() == 1;
     }
 
     @Override
@@ -133,6 +145,9 @@ public class PluginLiteInfo implements Parcelable {
         parcel.writeString(srcApkVersion);
         parcel.writeInt(enableRecovery ? 1 : 0);
         parcel.writeString(plugin_refs);
+        parcel.writeInt(statusCode);
+        parcel.writeInt(deletePackageBeforeInstall ? 1 : 0);
+        parcel.writeInt(useInstallerProcess ? 1 : 0);
     }
 
 
@@ -151,6 +166,9 @@ public class PluginLiteInfo implements Parcelable {
             jObj.put("srcApkVer", srcApkVersion);
             jObj.put("enableRecovery", enableRecovery);
             jObj.put("plugin_refs", plugin_refs);
+            jObj.put("statusCode", statusCode);
+            jObj.put("deletePackageBeforeInstall", deletePackageBeforeInstall);
+            jObj.put("useInstallerProcess", useInstallerProcess);
         } catch (JSONException e) {
             // ignore
         }
@@ -163,6 +181,8 @@ public class PluginLiteInfo implements Parcelable {
                 + ", srcApkPath=" + srcApkPath + ", installStatus=" + installStatus
                 + ", version=" + pluginVersion + ", grayVersion=" + pluginGrayVersion
                 + ", srcApkPkgName=" + srcApkPkgName + ", srcApkVersion=" + srcApkVersion
-                + ", enableRecovery=" + enableRecovery + ", plugin_refs=[" + plugin_refs + "]";
+                + ", enableRecovery=" + enableRecovery + ", plugin_refs=[" + plugin_refs + "]"
+                + ", statusCode=" + statusCode + ", deletePackageBeforeInstall=" + deletePackageBeforeInstall
+                + ", useInstallerProcess=" + useInstallerProcess;
     }
 }

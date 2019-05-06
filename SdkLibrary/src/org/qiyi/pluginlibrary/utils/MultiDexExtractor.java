@@ -114,11 +114,11 @@ class MultiDexExtractor {
             }
             for (File oldFile : files) {
                 if (!oldFile.delete()) {
-                    PluginDebugLog.warningLog(TAG, "Failed to delete old dex file " + oldFile.getPath());
+                    PluginDebugLog.runtimeLog(TAG, "Failed to delete old dex file " + oldFile.getPath());
                 }
             }
             if (!dexDir.delete()) {
-                PluginDebugLog.warningLog(TAG, "Failed to delete secondary dex dir " + dexDir.getPath());
+                PluginDebugLog.runtimeLog(TAG, "Failed to delete secondary dex dir " + dexDir.getPath());
             }
         }
     }
@@ -249,11 +249,15 @@ class MultiDexExtractor {
      * 从Apk中解压出一个Dex文件，重新生成一个Zip，输入到DexClassLoader
      */
     private void extractDex2Zip(ZipFile apk, ZipEntry dexFile, File outDex) throws IOException {
+        File outDexDir = outDex.getParentFile();
+        if (!outDexDir.exists() && !outDexDir.mkdirs()) {
+            PluginDebugLog.runtimeLog(TAG, "Failed to create dir " + outDexDir.getAbsolutePath());
+        }
 
         InputStream in = apk.getInputStream(dexFile);
         ZipOutputStream out = null;
         // create tmp file
-        File tmp = new File(outDex.getParentFile(), outDex.getName() + ".tmp");
+        File tmp = new File(outDexDir, outDex.getName() + ".tmp");
         try {
             out = new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(tmp)));
             try {

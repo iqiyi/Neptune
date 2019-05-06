@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <declare-styleable name="RecyclerView">
-        <attr format="string" name="layoutManager"/>
-        <attr name="android:orientation"/>
-        <attr name="android:descendantFocusability"/>
-        <attr format="integer" name="spanCount"/>
-        <attr format="boolean" name="reverseLayout"/>
-        <attr format="boolean" name="stackFromEnd"/>
-        <attr format="boolean" name="fastScrollEnabled"/>
-        <attr format="reference" name="fastScrollVerticalThumbDrawable"/>
-        <attr format="reference" name="fastScrollVerticalTrackDrawable"/>
-        <attr format="reference" name="fastScrollHorizontalThumbDrawable"/>
-        <attr format="reference" name="fastScrollHorizontalTrackDrawable"/>
+        <attr name="layoutManager" format="string" />
+        <attr name="android:orientation" />
+        <attr name="android:descendantFocusability" />
+        <attr name="spanCount" format="integer" />
+        <attr name="reverseLayout" format="boolean" />
+        <attr name="stackFromEnd" format="boolean" />
+        <attr name="fastScrollEnabled" format="boolean" />
+        <attr name="fastScrollVerticalThumbDrawable" format="reference" />
+        <attr name="fastScrollVerticalTrackDrawable" format="reference" />
+        <attr name="fastScrollHorizontalThumbDrawable" format="reference" />
+        <attr name="fastScrollHorizontalTrackDrawable" format="reference" />
     </declare-styleable>
     <dimen name="fastscroll_default_thickness">8dp</dimen>
     <dimen name="fastscroll_margin">0dp</dimen>
@@ -19,5 +19,5 @@
     <dimen name="item_touch_helper_max_drag_scroll_per_frame">20dp</dimen>
     <dimen name="item_touch_helper_swipe_escape_max_velocity">800dp</dimen>
     <dimen name="item_touch_helper_swipe_escape_velocity">120dp</dimen>
-    <item name="item_touch_helper_previous_elevation" type="id"/>
+    <item name="item_touch_helper_previous_elevation" type="id" />
 </resources>

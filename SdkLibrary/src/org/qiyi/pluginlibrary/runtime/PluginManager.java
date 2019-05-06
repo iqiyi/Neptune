@@ -64,11 +64,14 @@ import org.qiyi.pluginlibrary.utils.ErrorUtil;
 import org.qiyi.pluginlibrary.utils.FileUtils;
 import org.qiyi.pluginlibrary.utils.IntentUtils;
 import org.qiyi.pluginlibrary.utils.PluginDebugLog;
+import org.qiyi.pluginlibrary.utils.RunUtil;
 import org.qiyi.pluginlibrary.utils.ViewPluginHelper;
 
 import java.io.File;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -93,9 +96,9 @@ public class PluginManager {
     private static ConcurrentHashMap<String, PluginLoadedApk> sPluginsMap =
             new ConcurrentHashMap<>();
     /* 异步加载插件线程池 */
-    private static Executor mExecutor = Executors.newCachedThreadPool();
+    private static Executor sExecutor = Executors.newCachedThreadPool();
     /* 插件加载线程和主线程通信 */
-    private static Handler mHandler = new Handler(Looper.getMainLooper());
+    private static Handler sHandler = new Handler(Looper.getMainLooper());
     /* 插件状态投递 */
     private static IDeliverInterface mDeliver;
     /* 插件状态监听器 */
@@ -279,7 +282,7 @@ public class PluginManager {
                 try {
                     PluginLoadedApk loadedApk = getPluginLoadedApkByPkgName(packageName);
                     if (loadedApk != null) {
-                        ActivityWrapper context = new ActivityWrapper(hostActivity, packageName);
+                        ActivityWrapper context = new ActivityWrapper(hostActivity, loadedApk);
                         View view = (View) element.getConstructor(Context.class).newInstance(context);
                         ViewPluginHelper.disableViewSaveInstanceRecursively(view);
                         listener.onSuccess(view, packageName);
@@ -319,7 +322,6 @@ public class PluginManager {
         PluginLoadedApk loadedApk = getPluginLoadedApkByPkgName(packageName);
         // 1. 插件已经在内存，直接加载成功
         if (loadedApk != null) {
-            loadedApk.makeApplication();
             try {
                 Class<?> pluginClass = loadedApk.getPluginClassLoader().loadClass(className);
                 listener.onSuccess(pluginClass, packageName);
@@ -449,12 +451,16 @@ public class PluginManager {
         String currentProcess = FileUtils.getCurrentProcessName(mHostContext);
         if (!TextUtils.equals(currentProcess, targetProcessName)) {
             // 启动进程和目标进程不一致，需要先启动目标进程，初始化PluginLoadedApk
+            PluginDebugLog.runtimeFormatLog(TAG, "enterProxy caller process %s not match with target process %s for pkgName %s",
+                    currentProcess, targetProcessName, packageName);
             Intent transIntent = new Intent();
             transIntent.setAction(IntentConstant.ACTION_START_PLUGIN);
             transIntent.putExtra(IntentConstant.EXTRA_START_INTENT_KEY, mIntent);
-            transIntent.putExtra(IntentConstant.EXTRA_TARGET_PROCESS, targetProcessName);
             try {
                 String proxyServiceName = ComponentFinder.matchServiceProxyByFeature(targetProcessName);
+                String fixedProcess = ComponentFinder.fixProcessNameByService(mHostContext, proxyServiceName);
+                transIntent.putExtra(IntentConstant.EXTRA_TARGET_PROCESS, fixedProcess);
+
                 transIntent.setClass(mHostContext, Class.forName(proxyServiceName));
                 mHostContext.startService(transIntent);
             } catch (ClassNotFoundException e) {
@@ -463,29 +469,30 @@ public class PluginManager {
             return;
         }
 
-        LinkedBlockingQueue<Intent> cacheIntents = PActivityStackSupervisor.getCachedIntent(packageName);
+        final IntentRequest request = new IntentRequest(mIntent, mServiceConnection);
+        LinkedBlockingQueue<IntentRequest> cacheIntents = PActivityStackSupervisor.getCachedIntent(packageName);
         if (cacheIntents != null && cacheIntents.size() > 0) {
-            cacheIntents.add(mIntent);
-            PluginDebugLog.runtimeLog(TAG, "LoadingMap is not empty, Cache current intent, intent: " + mIntent + ", packageName: " + packageName);
+            PluginDebugLog.runtimeLog(TAG, "LoadingMap is not empty, Cache current intent and execute it later, intent: "
+                    + mIntent + ", packageName: " + packageName);
+            cacheIntents.add(request);
             return;
         }
 
         boolean isLoadAndInit = isPluginLoadedAndInit(packageName);
-        if (!isLoadAndInit) {
-            if (null == cacheIntents) {
-                cacheIntents = new LinkedBlockingQueue<Intent>();
-                PActivityStackSupervisor.addCachedIntent(packageName, cacheIntents);
-            }
-            // 缓存这个intent，等待PluginLoadedApk加载到内存之后再启动这个Intent
-            PluginDebugLog.runtimeLog(TAG, "Environment is initializing and loading, cache current intent first, intent: " + mIntent);
-            cacheIntents.add(mIntent);
-        } else {
+        if (isLoadAndInit) {
             PluginDebugLog.runtimeLog(TAG, "Environment is already ready, launch current intent directly: " + mIntent);
-            //可以直接启动组件
+            // 可以直接启动组件
             readyToStartSpecifyPlugin(mHostContext, mServiceConnection, mIntent, true);
             return;
         }
 
+        if (null == cacheIntents) {
+            cacheIntents = new LinkedBlockingQueue<IntentRequest>();
+            PActivityStackSupervisor.addCachedIntent(packageName, cacheIntents);
+        }
+        // 缓存这个intent，等待PluginLoadedApk加载到内存之后再启动这个Intent
+        PluginDebugLog.runtimeLog(TAG, "Environment is initializing and loading, cache current intent first, intent: " + mIntent);
+        cacheIntents.add(request);
         // 处理插件的依赖关系
         final PluginLiteInfo info = PluginPackageManagerNative.getInstance(mHostContext.getApplicationContext())
                 .getPackageInfo(packageName);
@@ -509,7 +516,7 @@ public class PluginManager {
                                 PluginDebugLog.runtimeLog(TAG, "check installation success pkgName: " + refInfo.packageName);
                                 if (count.get() == 0) {
                                     PluginDebugLog.runtimeLog(TAG,
-                                            "start Check installation after check dependence packageName: "
+                                            "start check installation after check dependence packageName: "
                                                     + packageName);
                                     checkPkgInstallationAndLaunch(mHostContext, info, mServiceConnection, mIntent, targetProcessName);
                                 }
@@ -524,7 +531,7 @@ public class PluginManager {
                         });
             }
         } else if (info != null) {
-            PluginDebugLog.runtimeLog(TAG, "start Check installation without dependence packageName: " + packageName);
+            PluginDebugLog.runtimeLog(TAG, "start check installation without dependence packageName: " + packageName);
             checkPkgInstallationAndLaunch(mHostContext, info, mServiceConnection, mIntent, targetProcessName);
         } else {
             PluginDebugLog.runtimeLog(TAG, "pluginLiteInfo is null packageName: " + packageName);
@@ -589,45 +596,44 @@ public class PluginManager {
                                                     ServiceConnection mConnection,
                                                     Intent mIntent,
                                                     boolean needAddCache) {
-        PluginDebugLog.runtimeLog(TAG, "launchIntent: " + mIntent);
+        PluginDebugLog.runtimeLog(TAG, "readyToStartSpecifyPlugin launchIntent: " + mIntent);
         String packageName = tryParsePkgName(mContext, mIntent);
         PluginLoadedApk mLoadedApk = getPluginLoadedApkByPkgName(packageName);
         if (mLoadedApk == null) {
             deliver(mContext, false, packageName, ErrorType.ERROR_PLUGIN_NOT_LOADED);
-            PluginDebugLog.runtimeLog(TAG, packageName + " launchIntent env is null! Just return!");
+            PluginDebugLog.runtimeLog(TAG, packageName + "readyToStartSpecifyPlugin launchIntent exception, plugin loaded apk not exist");
             PActivityStackSupervisor.clearLoadingIntent(packageName);
             return false;
         }
 
-        if (!mLoadedApk.makeApplication()) {
-            PActivityStackSupervisor.clearLoadingIntent(packageName);
-            PluginDebugLog.runtimeFormatLog(TAG, "makeApplication fail:%s", packageName);
-            return false;
-        }
-
-        LinkedBlockingQueue<Intent> cacheIntents =
+        LinkedBlockingQueue<IntentRequest> cacheIntents =
                 PActivityStackSupervisor.getCachedIntent(packageName);
         if (cacheIntents == null) {
-            cacheIntents = new LinkedBlockingQueue<Intent>();
+            cacheIntents = new LinkedBlockingQueue<IntentRequest>();
             PActivityStackSupervisor.addCachedIntent(packageName, cacheIntents);
         }
-        // 避免重复添加到队列中，尤其是第一次初始化时在enterProxy中已经添加了一次
-        if (!cacheIntents.contains(mIntent) && needAddCache) {
-            PluginDebugLog.runtimeLog(TAG, "launchIntent add to cacheIntent....");
-            cacheIntents.offer(mIntent);
+        // 避免重复添加Intent请求到队列中，尤其是第一次初始化时在enterProxy中已经添加了一次
+        IntentRequest request = new IntentRequest(mIntent, mConnection);
+        if (!cacheIntents.contains(request) && needAddCache) {
+            PluginDebugLog.runtimeLog(TAG, "readyToStartSpecifyPlugin launchIntent add to cacheIntent....");
+            cacheIntents.offer(request);  // 添加到队列
         } else {
-            PluginDebugLog.runtimeLog(TAG, "launchIntent not add to cacheIntent....needAddCache:" + needAddCache);
+            PluginDebugLog.runtimeLog(TAG, "readyToStartSpecifyPlugin launchIntent no need add to cacheIntent....needAddCache:" + needAddCache);
         }
 
-        PluginDebugLog.runtimeLog(TAG, "launchIntent_cacheIntents: " + cacheIntents);
-        Intent intent = cacheIntents.poll();
-        if (!mLoadedApk.hasLaunchIngIntent() && intent != null) {
-            doRealLaunch(mContext, mLoadedApk, intent, mConnection);
-            PluginDebugLog.runtimeLog(TAG, "launchIntent no launching intnet... and launch end!");
+        PluginDebugLog.runtimeLog(TAG, "readyToStartSpecifyPlugin launchIntent_cacheIntents: " + cacheIntents);
+        if (!mLoadedApk.hasLaunchIngIntent()) {
+            IntentRequest firstRequest = cacheIntents.poll(); //处理队首的Intent
+            if (firstRequest != null && firstRequest.getIntent() != null) {
+                PluginDebugLog.runtimeFormatLog(TAG, "readyToStartSpecifyPlugin, no launching intent for pkgName: %s, " +
+                        "ready to process first intent in queue!", packageName);
+                doRealLaunch(mContext, mLoadedApk, firstRequest.getIntent(), firstRequest.getServiceConnection());
+            }
         } else {
-            PluginDebugLog.runtimeLog(TAG, "launchIntent has launching intent.... so return directly!");
+            PluginDebugLog.runtimeFormatLog(TAG, "readyToStartSpecifyPlugin, has launching intent for pkgName %s " +
+                    "waiting other intent process over", packageName);
         }
-        return false;
+        return true;
     }
 
     /**
@@ -650,17 +656,16 @@ public class PluginManager {
      * @param mIntent      需要启动组件的Intent
      * @param mConnection  bindService时需要的ServiceConnection,如果不是bindService的方式启动组件，传入Null
      */
-    private static void doRealLaunch(Context mHostContext,
+    private static boolean doRealLaunch(Context mHostContext,
                                      PluginLoadedApk mLoadedApk,
                                      Intent mIntent,
                                      ServiceConnection mConnection) {
-
         String targetClassName = "";
         ComponentName mComponent = mIntent.getComponent();
         if (mComponent != null) {
             //显式启动
             targetClassName = mComponent.getClassName();
-            PluginDebugLog.runtimeLog(TAG, "launchIntent_targetClassName:" + targetClassName);
+            PluginDebugLog.runtimeLog(TAG, "doRealLaunch launchIntent_targetClassName:" + targetClassName);
             if (TextUtils.isEmpty(targetClassName)) {
                 targetClassName = mLoadedApk.getPluginPackageInfo().getDefaultActivityName();
             }
@@ -675,18 +680,17 @@ public class PluginManager {
             } catch (Exception e) {
                 deliver(mHostContext, false,
                         pkgName, ErrorType.ERROR_PLUGIN_LOAD_COMP_CLASS);
-                PluginDebugLog.runtimeLog(TAG, "launchIntent loadClass failed for targetClassName: "
+                PluginDebugLog.runtimeLog(TAG, "doRealLaunch loadClass failed for targetClassName: "
                         + targetClassName);
-                executeNext(mLoadedApk, mConnection, mHostContext);
-                return;
+                executeNext(mHostContext, mLoadedApk);
+                return false;
             }
         }
 
         String action = mIntent.getAction();
-
         if (TextUtils.equals(action, IntentConstant.ACTION_PLUGIN_INIT)
                 || TextUtils.equals(targetClassName, IntentConstant.EXTRA_VALUE_LOADTARGET_STUB)) {
-            PluginDebugLog.runtimeLog(TAG, "launchIntent load target stub!");
+            PluginDebugLog.runtimeLog(TAG, "doRealLaunch load target stub for pkgName: " + pkgName);
             //通知插件初始化完毕
             if (targetClass != null && BroadcastReceiver.class.isAssignableFrom(targetClass)) {
                 Intent newIntent = new Intent(mIntent);
@@ -695,19 +699,23 @@ public class PluginManager {
                 newIntent.setPackage(mHostContext.getPackageName());
                 mHostContext.sendBroadcast(newIntent);
             }
-            // 表示后台加载，不需要处理该Intent
-            executeNext(mLoadedApk, mConnection, mHostContext);
-            return;
+            // 表示后台加载Application，不需要启动组件
+            executeNext(mHostContext, mLoadedApk);
+            return false;
         }
 
         mLoadedApk.changeLaunchingIntentStatus(true);
-        PluginDebugLog.runtimeLog(TAG, "launchIntent_targetClass: " + targetClass);
+        PluginDebugLog.runtimeLog(TAG, "doRealLaunch launchIntent_targetClass: " + targetClassName);
         if (targetClass != null && Service.class.isAssignableFrom(targetClass)) {
             //处理的是Service, 宿主启动插件Service只能通过显式启动
             ComponentFinder.switchToServiceProxy(mLoadedApk, mIntent, targetClassName);
             if (mConnection == null) {
+                PluginDebugLog.runtimeLog(TAG, "doRealLaunch serviceConnection is null, startService: "
+                        + targetClassName);
                 mHostContext.startService(mIntent);
             } else {
+                PluginDebugLog.runtimeLog(TAG, "doRealLaunch serviceConnection is " + mConnection.getClass().getName()
+                        + ", bindService: " + targetClassName);
                 mHostContext.bindService(mIntent, mConnection,
                         mIntent.getIntExtra(IntentConstant.BIND_SERVICE_FLAGS, Context.BIND_AUTO_CREATE));
             }
@@ -715,18 +723,23 @@ public class PluginManager {
             //处理的是Activity
             ComponentFinder.switchToActivityProxy(pkgName,
                     mIntent, -1, mHostContext);
-            PActivityStackSupervisor.addLoadingIntent(pkgName, mIntent);
+            PActivityStackSupervisor.addLoadingIntent(pkgName, new IntentRequest(mIntent, mConnection));
             Context lastActivity = null;
             PActivityStackSupervisor mActivityStackSupervisor =
                     mLoadedApk.getActivityStackSupervisor();
             lastActivity = mActivityStackSupervisor.getAvailableActivity();
+            PluginDebugLog.runtimeLog(TAG, "doRealLaunch startActivity: " + targetClassName);
             if (mHostContext instanceof Activity) {
                 mHostContext.startActivity(mIntent);
             } else if (lastActivity != null) {
-                // Clear the Intent.FLAG_ACTIVITY_NEW_TASK
-                int flag = mIntent.getFlags();
-                flag = flag ^ Intent.FLAG_ACTIVITY_NEW_TASK;
-                mIntent.setFlags(flag);
+                ActivityInfo lastInfo = mLoadedApk.getActivityInfoByClassName(lastActivity.getClass().getName());
+                ActivityInfo currentInfo = mLoadedApk.getActivityInfoByClassName(targetClassName);
+                if (lastInfo != null && currentInfo != null && TextUtils.equals(lastInfo.taskAffinity, currentInfo.taskAffinity)) {
+                    // Clear the Intent.FLAG_ACTIVITY_NEW_TASK
+                    int flag = mIntent.getFlags();
+                    flag = flag ^ Intent.FLAG_ACTIVITY_NEW_TASK;
+                    mIntent.setFlags(flag);
+                }
                 lastActivity.startActivity(mIntent);
             } else {
                 // Add the Intent.FLAG_ACTIVITY_NEW_TASK
@@ -734,38 +747,43 @@ public class PluginManager {
                 mHostContext.startActivity(mIntent);
             }
         }
+        if (sPluginStatusListener != null) {
+            sPluginStatusListener.onLaunchSuccess(pkgName, mIntent);
+        }
+
         // 执行下一个Intent
-        executeNext(mLoadedApk, mConnection, mHostContext);
+        PluginDebugLog.runtimeFormatLog(TAG, "doRealLaunch process intent %s end, ready to executeNext intent", mIntent.toString());
+        executeNext(mHostContext, mLoadedApk);
+        return true;
     }
 
     /**
-     * 启动队列中下一个Intent代表的组件
+     * 处理队列中下一个IntentRequest的请求
      *
-     * @param mLoadedApk  当前要启动的组件的插件实例
-     * @param mConnection bindService时需要的ServiceConnection,如果不是bindService的方式启动组件，传入Null
-     * @param mContext    主进程的Context
+     * @param mContext   主进程的Context
+     * @param mLoadedApk 当前要启动的组件的插件实例
      */
-    private static void executeNext(final PluginLoadedApk mLoadedApk,
-                                    final ServiceConnection mConnection,
-                                    final Context mContext) {
-        Message msg = Message.obtain(mHandler, new Runnable() {
+    private static void executeNext(final Context mContext,
+                                    final PluginLoadedApk mLoadedApk) {
+        Message msg = Message.obtain(sHandler, new Runnable() {
 
             @Override
             public void run() {
-                LinkedBlockingQueue<Intent> cacheIntents =
+                LinkedBlockingQueue<IntentRequest> cacheIntents =
                         PActivityStackSupervisor.getCachedIntent(mLoadedApk.getPluginPackageName());
                 PluginDebugLog.runtimeLog(TAG, "executeNext cacheIntents: " + cacheIntents);
-                if (null != cacheIntents) {
-                    Intent toBeStart = cacheIntents.poll();
-                    if (toBeStart != null) {
-                        doRealLaunch(mContext, mLoadedApk, toBeStart, mConnection);
+                if (null != cacheIntents && !cacheIntents.isEmpty()) {
+                    IntentRequest request = cacheIntents.poll();
+                    if (request != null && request.getIntent() != null) {
+                        PluginDebugLog.runtimeLog(TAG, "executeNext process intent: " + request.getIntent());
+                        doRealLaunch(mContext, mLoadedApk, request.getIntent(), request.getServiceConnection());
                         return;
                     }
                 }
                 mLoadedApk.changeLaunchingIntentStatus(false);
             }
         });
-        mHandler.sendMessage(msg);
+        sHandler.sendMessage(msg);
     }
 
     /**
@@ -793,51 +811,16 @@ public class PluginManager {
                                                       final ServiceConnection mServiceConnection,
                                                       final Intent mIntent,
                                                       final String mProcessName) {
-
-        PluginPackageManagerNative.getInstance(mHostContext.getApplicationContext()).packageAction(packageInfo,
+        final Context appContext = mHostContext.getApplicationContext();
+        PluginPackageManagerNative.getInstance(appContext).packageAction(packageInfo,
                 new IInstallCallBack.Stub() {
                     @Override
                     public void onPackageInstalled(PluginLiteInfo info) {
-                        //install done ,load async
+                        // install done ,load plugin async
                         PluginDebugLog.runtimeLog(TAG,
                                 "checkPkgInstallationAndLaunch installed packageName: " + info.packageName);
-                        loadPluginAsync(mHostContext.getApplicationContext(), packageInfo.packageName,
-                                new IPluginLoadListener() {
-
-                                    @Override
-                                    public void onLoadSuccess(String packageName) {
-                                        try {
-                                            PluginDebugLog.runtimeLog(TAG,
-                                                    "checkPkgInstallationAndLaunch loadPluginAsync callback onLoadSuccess pkgName: " + packageName);
-                                            //load done,start plugin
-                                            readyToStartSpecifyPlugin(mHostContext, mServiceConnection, mIntent, false);
-                                            if (sPluginStatusListener != null) {
-                                                sPluginStatusListener.onPluginReady(packageName);
-                                            }
-                                        } catch (Exception e) {
-                                            PActivityStackSupervisor.clearLoadingIntent(packageName);
-                                            PluginLoadedApk mPlugin = sPluginsMap.get(packageName);
-                                            if (null != mPlugin) {
-                                                mPlugin.changeLaunchingIntentStatus(false);
-                                            }
-                                            e.printStackTrace();
-                                        }
-                                    }
-
-                                    @Override
-                                    public void onLoadFailed(String packageName) {
-                                        PluginDebugLog.runtimeLog(TAG,
-                                                "checkPkgInstallationAndLaunch loadPluginAsync callback onLoadFailed pkgName: " + packageName);
-                                        //load failed, clear launching intent
-                                        PActivityStackSupervisor.clearLoadingIntent(packageName);
-                                        PluginLoadedApk mPlugin = sPluginsMap.get(packageName);
-                                        if (null != mPlugin) {
-                                            mPlugin.changeLaunchingIntentStatus(false);
-                                        }
-                                    }
-                                }, mProcessName);
+                        startLoadPlugin(appContext, packageInfo, mServiceConnection, mIntent, mProcessName);
                     }
-
 
                     @Override
                     public void onPackageInstallFail(PluginLiteInfo info, int failReason) throws RemoteException {
@@ -851,16 +834,82 @@ public class PluginManager {
     }
 
     /**
+     * 开始准备加载插件LoadedApk实例
+     *
+     * @param mHostContext       主进程Context
+     * @param packageInfo        插件的详细信息
+     * @param mServiceConnection bindService时需要的ServiceConnection,如果不是bindService的方式启动组件，传入Null
+     * @param mIntent            启动组件的Intent
+     */
+    private static void startLoadPlugin(final Context mHostContext,
+                                        final PluginLiteInfo packageInfo,
+                                        final ServiceConnection mServiceConnection,
+                                        final Intent mIntent,
+                                        final String mProcessName) {
+        loadPluginAsync(mHostContext, packageInfo.packageName,
+                new IPluginLoadListener() {
+
+                    @Override
+                    public void onLoadSuccess(String packageName) {
+                        PluginDebugLog.runtimeLog(TAG,
+                                "checkPkgInstallationAndLaunch loadPluginAsync callback onLoadSuccess pkgName: " + packageName);
+                        // load done, start plugin
+                        readyToStartSpecifyPlugin(mHostContext, mServiceConnection, mIntent, false);
+                        if (sPluginStatusListener != null) {
+                            sPluginStatusListener.onPluginReady(packageName);
+                        }
+                    }
+
+                    @Override
+                    public void onLoadFailed(String packageName) {
+                        PluginDebugLog.runtimeLog(TAG,
+                                "checkPkgInstallationAndLaunch loadPluginAsync callback onLoadFailed pkgName: " + packageName);
+                        // load failed, clear launching intent
+                        PActivityStackSupervisor.clearLoadingIntent(packageName);
+                        PluginLoadedApk mPlugin = sPluginsMap.get(packageName);
+                        if (null != mPlugin) {
+                            mPlugin.changeLaunchingIntentStatus(false);
+                        }
+                    }
+                }, mProcessName);
+    }
+
+    /**
      * 异步加载插件
      *
-     * @param mContext     主进程的Context
-     * @param mPackageName 需要加载的插件包名
-     * @param mListener    加载结果回调
+     * @param context     主进程的Context
+     * @param packageName 需要加载的插件包名
+     * @param listener    加载结果回调
+     * @param processName 进程名称
      */
-    private static void loadPluginAsync(final Context mContext, String mPackageName,
-                                        final IPluginLoadListener mListener, String mProcessName) {
-        mExecutor.execute(new LoadPluginTask(mContext, mPackageName, mListener, mProcessName));
+    private static void loadPluginAsync(Context context, String packageName,
+                                        IPluginLoadListener listener, String processName) {
+        sExecutor.execute(new LoadPluginTask(context, packageName, listener, processName));
     }
+
+    /**
+     * 同步加载插件
+     *
+     * @param context     主进程的Context
+     * @param packageName 需要加载的插件包名
+     * @param processName 进程名称
+     */
+    public static void loadPluginSync(final Context context, String packageName,
+                                      String processName) {
+        LoadPluginTask task = new LoadPluginTask(context, packageName, new IPluginLoadListener() {
+            @Override
+            public void onLoadSuccess(String packageName) {
+                PluginDebugLog.runtimeFormatLog(TAG, "loadPluginSync success for plugin %s", packageName);
+            }
+
+            @Override
+            public void onLoadFailed(String packageName) {
+                PluginDebugLog.runtimeFormatLog(TAG, "loadPluginSync failed for plugin %s", packageName);
+            }
+        }, processName);
+        task.run();
+    }
+
 
     /**
      * 从mIntent里面解析插件包名
@@ -981,9 +1030,6 @@ public class PluginManager {
             if (mLoadedApk == null || mLoadedApk.getPluginApplication() == null) {
                 return;
             }
-            if (mLoadedApk.hasPluginInit()) {
-                mLoadedApk.getPluginApplication().onTerminate();
-            }
             mLoadedApk.ejectClassLoader();
         }
     }
@@ -1030,7 +1076,7 @@ public class PluginManager {
      * 处理插件退出时的善后操作
      *
      * @param mPackageName 退出插件的包名
-     * @param force 是否强制退出
+     * @param force        是否强制退出
      */
     public static void doExitStuff(String mPackageName, boolean force) {
         if (TextUtils.isEmpty(mPackageName)) {
@@ -1116,6 +1162,27 @@ public class PluginManager {
     }
 
     /**
+     * dump 当前的插件栈信息
+     */
+    public static void dump(PrintWriter printWriter) {
+        try {
+            printWriter.print("================start dump plugin activity stack====================");
+            Iterator<Map.Entry<String, PluginLoadedApk>> mIterator = sPluginsMap.entrySet().iterator();
+            while (mIterator.hasNext()) {
+                Map.Entry<String, PluginLoadedApk> tmp = mIterator.next();
+                printWriter.print("packageName:" + tmp.getKey());
+                printWriter.print("\n");
+                tmp.getValue().getActivityStackSupervisor().dump(printWriter);
+            }
+            printWriter.print("================end dump plugin activity stack====================");
+        } catch (Exception e) {
+            e.printStackTrace();
+            printWriter.print("error:" + e.getMessage());
+        }
+
+    }
+
+    /**
      * 注册ActivityLifeCycle到插件的Application
      */
     public static void registerActivityLifecycleCallbacks(Application.ActivityLifecycleCallbacks callback) {
@@ -1169,13 +1236,14 @@ public class PluginManager {
         private String mPackageName;
         private Context mHostContext;
         private String mProcessName;
+        private PluginLoadedApk mLoadedApk;
         private PluginLoadedApkHandler mHandler;
 
         LoadPluginTask(Context mHostContext,
                        String mPackageName,
                        IPluginLoadListener mListener,
                        String mProcessName) {
-            this.mHostContext = mHostContext;
+            this.mHostContext = mHostContext.getApplicationContext();
             this.mPackageName = mPackageName;
             this.mProcessName = mProcessName;
             this.mHandler = new PluginLoadedApkHandler(mListener, mPackageName, Looper.getMainLooper());
@@ -1185,14 +1253,17 @@ public class PluginManager {
         public void run() {
             boolean loaded = false;
             try {
-                PluginLiteInfo packageInfo =
-                        PluginPackageManagerNative.getInstance(mHostContext).getPackageInfo(mPackageName);
+                PluginLiteInfo packageInfo = PluginPackageManagerNative.getInstance(mHostContext)
+                        .getPackageInfo(mPackageName);
                 if (packageInfo != null) {
-                    PluginDebugLog.runtimeLog("plugin",
+                    PluginDebugLog.runtimeLog(TAG,
                             "doInBackground:" + mPackageName);
                     loaded = createPluginLoadedApkInstance(mHostContext, packageInfo, mProcessName);
+                    if (loaded && mLoadedApk != null) {
+                        invokeApplication();
+                    }
                 } else {
-                    PluginDebugLog.runtimeLog("plugin", "packageInfo is null before initProxyEnvironment");
+                    PluginDebugLog.runtimeLog(TAG, "packageInfo is null before initProxyEnvironment");
                 }
             } catch (Exception e) {
                 ErrorUtil.throwErrorIfNeed(e);
@@ -1205,29 +1276,46 @@ public class PluginManager {
             mHandler.sendEmptyMessage(what);
         }
 
+        /**
+         * 初始化插件的Application对象
+         */
+        private void invokeApplication() throws Exception {
+            final Exception[] temp = new Exception[1];
+            RunUtil.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    if (mLoadedApk != null
+                            && mLoadedApk.makeApplication()) {
+                        PluginDebugLog.runtimeFormatLog(TAG, "plugin %s makeApplication success", mPackageName);
+                    } else {
+                        temp[0] = new RuntimeException("init Application failed");
+                    }
+                }
+            }, true);
+            if (temp[0] != null) {
+                throw temp[0];
+            }
+        }
 
         /**
-         * 创建{@link PluginLoadedApk}
+         * 创建插件的{@link PluginLoadedApk}实例
          */
         private boolean createPluginLoadedApkInstance(Context context,
                                                       PluginLiteInfo packageInfo,
                                                       String mProcessName) {
             String packageName = packageInfo.packageName;
             if (!TextUtils.isEmpty(packageName)) {
-                boolean loaded = isPluginLoaded(packageName);
-                PluginDebugLog.runtimeLog(TAG, "sPluginsMap.containsKey(" + packageName + "):"
-                        + loaded);
-                if (loaded) {
+                mLoadedApk = getPluginLoadedApkByPkgName(packageName);
+                if (mLoadedApk != null) {
                     return true;
                 }
-                PluginLoadedApk mLoadedApk = null;
                 PluginPackageManager.updateSrcApkPath(context, packageInfo);
                 if (!TextUtils.isEmpty(packageInfo.srcApkPath)) {
                     File apkFile = new File(packageInfo.srcApkPath);
                     if (!apkFile.exists()) {
                         PluginDebugLog.runtimeLog(TAG,
                                 "Special case apkFile not exist, notify client! packageName: " + packageName);
-                        PluginPackageManager.notifyClientPluginException(context, packageName, "Apk file not exist!");
+                        PluginPackageManager.notifyClientPluginException(context, packageName, "Apk file not exist when load plugin");
                         return false;
                     }
 
@@ -1238,7 +1326,6 @@ public class PluginManager {
                 }
             }
             PluginDebugLog.runtimeLog(TAG, "plugin loaded failed! packageName: " + packageName);
-
             return false;
         }
     }
@@ -1253,9 +1340,9 @@ public class PluginManager {
         IPluginLoadListener mListener;
         String mPackageName;
 
-        public PluginLoadedApkHandler(IPluginLoadListener listenner, String pakName, Looper looper) {
+        public PluginLoadedApkHandler(IPluginLoadListener listener, String pakName, Looper looper) {
             super(looper);
-            this.mListener = listenner;
+            this.mListener = listener;
             this.mPackageName = pakName;
         }
 
@@ -1276,5 +1363,15 @@ public class PluginManager {
                     break;
             }
         }
+    }
+
+    /**
+     * 查看插件是否创建了 ClassLoader
+     *
+     * @param packageName 包名
+     * @return true or false
+     */
+    public static boolean isPluginClassLoaderLoaded(String packageName) {
+        return PluginLoadedApk.isPluginClassLoaderLoaded(packageName);
     }
 }

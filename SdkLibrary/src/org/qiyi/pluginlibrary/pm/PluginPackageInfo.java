@@ -28,6 +28,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.PermissionInfo;
 import android.content.pm.ProviderInfo;
 import android.content.pm.ServiceInfo;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Parcel;
@@ -67,9 +68,18 @@ public class PluginPackageInfo implements Parcelable {
      */
     private static final String META_KEY_MERGE_RES = "pluginapp_res_merge";
     /**
+     * 配置是否插入Webview的资源到插件资源池
+     */
+    private static final String META_KEY_ADD_WEBVIEW_RES = "pluginapp_add_webview_res";
+    /**
      * 配置插件是否运行在独立空间，完全不依赖宿主的类和资源
      */
     private static final String META_KEY_INDIVIDUAL = "pluginapp_individual";
+    /**
+     * 配置插件是否支持ContentProvider
+     */
+    private static final String META_KEY_SUPPORT_PROVIDER = "pluginapp_support_provider";
+
     private String packageName;
     private String applicationClassName;
     private String defaultActivityName;
@@ -82,12 +92,17 @@ public class PluginPackageInfo implements Parcelable {
     private String processName;
     // 是否需要把插件class注入进入父classloader，已废弃
     private boolean mIsClassInject = false;
-    // 是否需要把宿主的Resource合并进插件的Resource
+    // 是否需要把宿主的Resource合并进插件的Resources
     private boolean mIsMergeResource = false;
+    // 是否需要插入Webview的资源到插件的Resources
+    private boolean mAddWebviewResource = false;
+    // 是否支持ContentProvider
+    private boolean mSupportProvider = false;
     // 是否运行在独立空间，插件完全不依赖基线的类和资源
     private boolean mIsIndividualMode = false;
     private boolean mUsePluginAppInfo = false;
     private boolean mUsePluginCodePath = false;
+
     /**
      * Save all activity's resolve info
      */
@@ -158,6 +173,8 @@ public class PluginPackageInfo implements Parcelable {
             if (metaData != null) {
                 mIsClassInject = metaData.getBoolean(META_KEY_CLASS_INJECT);
                 mIsMergeResource = metaData.getBoolean(META_KEY_MERGE_RES);
+                mAddWebviewResource = metaData.getBoolean(META_KEY_ADD_WEBVIEW_RES);
+                mSupportProvider = metaData.getBoolean(META_KEY_SUPPORT_PROVIDER);
                 mIsIndividualMode = metaData.getBoolean(META_KEY_INDIVIDUAL);
                 String applicationMetaData = metaData.getString(META_KEY_PLUGIN_APPLICATION_SPECIAL);
                 if (!TextUtils.isEmpty(applicationMetaData)) {
@@ -216,6 +233,8 @@ public class PluginPackageInfo implements Parcelable {
         nativeLibraryDir = in.readString();
         mIsClassInject = in.readByte() != 0;
         mIsMergeResource = in.readByte() != 0;
+        mAddWebviewResource = in.readByte() != 0;
+        mSupportProvider = in.readByte() != 0;
         mIsIndividualMode = in.readByte() != 0;
         mUsePluginAppInfo = in.readByte() != 0;
         mUsePluginCodePath = in.readByte() != 0;
@@ -289,6 +308,10 @@ public class PluginPackageInfo implements Parcelable {
 
     public Map<String, ReceiverIntentInfo> getReceiverIntentInfos() {
         return mReceiverIntentInfos;
+    }
+
+    public Map<String, ProviderIntentInfo> getProviderIntentInfos() {
+        return mProviderIntentInfos;
     }
 
     public ActivityInfo findActivityByClassName(String activityClsName) {
@@ -443,6 +466,22 @@ public class PluginPackageInfo implements Parcelable {
         return null;
     }
 
+    /**
+     * 查找能够处理这个authority的Provider
+     */
+    public ProviderInfo resolveProvider(String authority) {
+        if (TextUtils.isEmpty(authority)) {
+            return null;
+        }
+        if (mProviderIntentInfos != null) {
+            for (ProviderIntentInfo info : mProviderIntentInfos.values()) {
+                if (info != null && TextUtils.equals(authority, info.mInfo.authority)) {
+                    return info.mInfo;
+                }
+            }
+        }
+        return null;
+    }
 
     public boolean isClassNeedInject() {
         return mIsClassInject;
@@ -450,6 +489,14 @@ public class PluginPackageInfo implements Parcelable {
 
     public boolean isResourceNeedMerge() {
         return mIsMergeResource;
+    }
+
+    public boolean isNeedAddWebviewResource() {
+        return mAddWebviewResource;
+    }
+
+    public boolean isSupportProvider() {
+        return mSupportProvider;
     }
 
     public boolean isIndividualMode() {
@@ -576,6 +623,8 @@ public class PluginPackageInfo implements Parcelable {
         parcel.writeString(nativeLibraryDir);
         parcel.writeByte((byte) (mIsClassInject ? 1 : 0));
         parcel.writeByte((byte) (mIsMergeResource ? 1 : 0));
+        parcel.writeByte((byte) (mAddWebviewResource ? 1: 0));
+        parcel.writeByte((byte) (mSupportProvider ? 1 : 0));
         parcel.writeByte((byte) (mIsIndividualMode ? 1 : 0));
         parcel.writeByte((byte) (mUsePluginAppInfo ? 1 : 0));
         parcel.writeByte((byte) (mUsePluginCodePath ? 1 : 0));

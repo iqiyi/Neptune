@@ -18,11 +18,13 @@
 package org.qiyi.pluginlibrary.utils;
 
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.Application;
 import android.app.Service;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.pm.PackageInfo;
+import android.os.Build;
 import android.text.TextUtils;
 
 import org.qiyi.pluginlibrary.install.PluginInstaller;
@@ -33,6 +35,10 @@ import org.qiyi.pluginlibrary.runtime.PluginLoadedApk;
 import org.qiyi.pluginlibrary.runtime.PluginManager;
 
 import java.io.File;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map.Entry;
 
 public class ContextUtils {
     private static final String TAG = ContextUtils.class.getSimpleName();
@@ -87,6 +93,54 @@ public class ContextUtils {
         }
     }
 
+    public static String getTopActivityName(Context context, String packName) {
+        String topActivity = getTopActivity(context);
+        if (!TextUtils.isEmpty(topActivity)) {
+            if (topActivity.startsWith("org.qiyi.pluginlibrary.component.InstrActivityProxyTranslucent1")
+                    || topActivity.startsWith("org.qiyi.pluginlibrary.component.InstrActivityProxy1")) {
+                return "plugin:" + getTopActivity();
+            } else {
+                return topActivity;
+            }
+        }
+        return null;
+    }
+
+    private static String getTopActivity(Context context) {
+        ActivityManager manager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        List<ActivityManager.RunningTaskInfo> runningTaskInfos = manager.getRunningTasks(1);
+        if (runningTaskInfos != null)
+            return runningTaskInfos.get(0).topActivity.getClassName();
+        else
+            return null;
+    }
+
+    public static String getTopActivity() {
+        String topPackage = null;
+        for (Entry<String, PluginLoadedApk> entry : PluginManager.getAllPluginLoadedApk().entrySet()) {
+            String packageName = (String) entry.getKey();
+            PluginLoadedApk mLoadedApk = (PluginLoadedApk) entry.getValue();
+            Activity topActivity = mLoadedApk.getActivityStackSupervisor().getTopActivity();
+            if (topActivity != null && isResumed(topActivity)) {
+                topPackage = packageName;
+                break;
+            }
+        }
+        return topPackage;
+    }
+
+    public static List<String> getRunningPluginPackage() {
+        List<String> mRunningPackage = new ArrayList<String>();
+        for (Entry<String, PluginLoadedApk> entry : PluginManager.getAllPluginLoadedApk().entrySet()) {
+            String packageName = (String) entry.getKey();
+            PluginLoadedApk mLoadedApk = (PluginLoadedApk) entry.getValue();
+            if (mLoadedApk.getActivityStackSupervisor().hasActivityRunning()) {
+                mRunningPackage.add(packageName);
+            }
+        }
+
+        return mRunningPackage;
+    }
 
     /**
      * 获取宿主的HostResourceTool工具
@@ -200,6 +254,13 @@ public class ContextUtils {
         }
     }
 
+    @Deprecated
+    public static String getPluginappDBPath(Context context, String pkg) {
+        if (context == null || TextUtils.isEmpty(pkg)) {
+            return null;
+        }
+        return PluginInstaller.getPluginappRootPath(context) + File.separator + pkg + File.separator + "databases";
+    }
 
     /**
      * 获取插件的PackageInfo信息
@@ -220,5 +281,32 @@ public class ContextUtils {
             return packageInfo.getPackageInfo();
         }
         return null;
+    }
+
+    /**
+     * 判断Activity是否已经销毁或正在销毁，这时候就不再调用Activity.finish方法
+     * 防止插件重写finish方法造成循环调用
+     */
+    public static boolean isFinished(Activity activity) {
+        boolean isFinished = false;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+            isFinished = activity.isDestroyed();
+        }
+        return isFinished || activity.isFinishing();
+    }
+
+    /**
+     * 判断Activity是否Resumed
+     */
+    public static boolean isResumed(Activity activity) {
+        boolean result = true;
+        try {
+            Class<?> clazz = Class.forName("android.app.Activity");
+            Method isResumed = clazz.getDeclaredMethod("isResumed");
+            result = (Boolean) isResumed.invoke(activity);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return result;
     }
 }

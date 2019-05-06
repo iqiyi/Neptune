@@ -20,12 +20,16 @@ class QYPluginExtension {
     String versionName
     /** File of split R.java */
     File splitRJavaFile
-    /** Host App pacakge name */
+    /** Host App package name */
     String hostPackageName
+    /** Host App supported abi */
+    String hostAbi = "armeabi"
     /** host Symbol file - R.txt */
     File hostSymbolFile
     /** host dependence - aar module*/
     String hostDependencies
     /** Modify class before dex */
     boolean dexModify = false
+    /** deeplink to enter plugin home page supported in host app */
+    String enterPluginLink
 }

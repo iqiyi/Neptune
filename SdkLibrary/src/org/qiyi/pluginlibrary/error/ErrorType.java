@@ -56,6 +56,8 @@ public class ErrorType {
     public static final int INSTALL_ERROR_APK_NO_SIGNATURE = 4010;
     /* 安装错误，插件apk签名不一致 */
     public static final int INSTALL_ERROR_APK_SIGNATURE_NOT_MATCH = 4011;
+    /* 安装错误，获取文件流为NULL */
+    public static final int INSTALL_ERROR_STREAM_NULL = 4012;
     /* 安装错误，安装so库不存在 */
     public static final int INSTALL_ERROR_SO_NOT_EXIST = 4100;
     /* 安装错误，安装so库拷贝失败 */
@@ -70,6 +72,7 @@ public class ErrorType {
     public static final int INSTALL_ERROR_CLIENT_TIME_OUT = 4300;
     /* 安装错误，启动PluginInstallerService异常 */
     public static final int INSTALL_ERROR_BEFORE_START_SERVICE = 4301;
+
 
 
 

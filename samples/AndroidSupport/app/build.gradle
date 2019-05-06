@@ -6,7 +6,7 @@ import java.util.regex.Pattern
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 26
+    compileSdkVersion 27
     buildToolsVersion "26.0.2"
     defaultConfig {
         applicationId "org.qiyi.support"
@@ -33,12 +33,13 @@ dependencies {
     compile "com.android.support:appcompat-v7:${ANDROID_SUPPORT_VERSION}"
 
     compile "com.facebook.fresco:fresco:${FRESCO_VERSION}"
+    //compile "com.airbnb.android:lottie:${LOTTIE_VERSION}"
 }
 
 
 afterEvaluate {
 
-    boolean genIds = false
+    boolean genIds = true
     android.applicationVariants.all { variant ->
 
         println "variant name:${variant.name}"
@@ -133,6 +134,7 @@ def handlePublicXml(ApkVariant variant) {
     }
 }
 
+
 task reBuildPublicXml(dependsOn: ['assembleDebug']) << {
     File publicXml = project.file("public.xml")
     File publicNewXml = project.file(project.hasProperty("public_name") ? project.property("public_name") : "public_n.xml")
@@ -208,7 +210,6 @@ task JarFresco(type: Jar, dependsOn: ['compileReleaseJavaWithJavac']) {
         if (it.getName().endsWith('.jar')) {
             project.zipTree(it)
         } else if (it.getName().endsWith('.aar')) {
-
             def aarDir = project.file("${project.buildDir}/aar")
             if (!aarDir.exists()) {
                 aarDir.mkdirs()

@@ -531,29 +531,6 @@ public class PluginActivityControl implements PluginActivityCallback {
     }
 
     /**
-     * 设置插件的Activity
-     */
-    public void setPlugin(Activity plugin) {
-        mPlugin = plugin;
-        mProxyRef = ReflectionUtils.on(plugin);
-    }
-
-    /**
-     * 得到代理的Activity
-     */
-    public Activity getProxy() {
-        return mProxy;
-    }
-
-    /**
-     * 设置代理的Activity
-     */
-    public void setProxy(Activity proxy) {
-        mProxy = proxy;
-        mProxyRef = ReflectionUtils.on(proxy);
-    }
-
-    /**
      * @return 代理Activity的反射工具类
      */
     public ReflectionUtils getProxyRef() {
@@ -696,8 +673,6 @@ public class PluginActivityControl implements PluginActivityCallback {
     public void callOnBackPressed() {
         if (null != mPlugin) {
             mPlugin.onBackPressed();
-        } else if (null != mProxy) {
-            mProxy.onBackPressed();
         }
     }
 
@@ -710,21 +685,33 @@ public class PluginActivityControl implements PluginActivityCallback {
     public boolean callOnKeyDown(int keyCode, KeyEvent event) {
         if (null != mPlugin) {
             return mPlugin.onKeyDown(keyCode, event);
-        } else if (null != mProxy) {
-            return mProxy.onKeyDown(keyCode, event);
         }
         return false;
     }
 
-    // Finals ADD 修复Fragment BUG
+    /**
+     * 执行插件的onPictureInPictureModeChanged方法
+     * @param isInPictureInPictureMode
+     * @param newConfig
+     */
+    @Override
+    public void callOnPictureInPictureModeChanged(boolean isInPictureInPictureMode, Configuration newConfig) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && null != mPlugin) {
+            mPlugin.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig);
+        }
+    }
+
+    @Override
+    public void callOnPictureInPictureModeChanged(boolean isInPictureInPictureMode) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && null != mPlugin) {
+            mPlugin.onPictureInPictureModeChanged(isInPictureInPictureMode);
+        }
+    }
+
     @Override
     public void callDump(String prefix, FileDescriptor fd, PrintWriter writer, String[] args) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-            if (null != mPlugin) {
-                mPlugin.dump(prefix, fd, writer, args);
-            } else if (null != mProxy) {
-                mProxy.dump(prefix, fd, writer, args);
-            }
+        if (null != mPlugin) {
+            mPlugin.dump(prefix, fd, writer, args);
         }
     }
 
@@ -732,8 +719,6 @@ public class PluginActivityControl implements PluginActivityCallback {
     public void callOnConfigurationChanged(Configuration newConfig) {
         if (null != mPlugin) {
             mPlugin.onConfigurationChanged(newConfig);
-        } else if (null != mProxy) {
-            mProxy.onConfigurationChanged(newConfig);
         }
     }
 
@@ -746,31 +731,21 @@ public class PluginActivityControl implements PluginActivityCallback {
     public void callOnDetachedFromWindow() {
         if (null != mPlugin) {
             mPlugin.onDetachedFromWindow();
-        } else if (null != mProxy) {
-            mProxy.onDetachedFromWindow();
         }
     }
 
     @Override
     public View callOnCreateView(String name, Context context, AttributeSet attrs) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-            if (null != mPlugin) {
-                return mPlugin.onCreateView(name, context, attrs);
-            } else if (null != mProxy) {
-                return mProxy.onCreateView(name, context, attrs);
-            }
+        if (null != mPlugin) {
+            return mPlugin.onCreateView(name, context, attrs);
         }
         return null;
     }
 
     @Override
     public View callOnCreateView(View parent, String name, Context context, AttributeSet attrs) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-            if (null != mPlugin) {
-                return mPlugin.onCreateView(parent, name, context, attrs);
-            } else if (null != mProxy) {
-                return mProxy.onCreateView(parent, name, context, attrs);
-            }
+        if (null != mPlugin) {
+            return mPlugin.onCreateView(parent, name, context, attrs);
         }
         return null;
     }

@@ -102,6 +102,31 @@
             android:process=":plugin2"
             android:taskAffinity=":container1"/>
 
+        <!-- singTask独立taskAffinity支持pip的Activity坑位 -->
+        <activity
+            android:name="org.qiyi.pluginlibrary.component.InstrActivityProxyPip0"
+            android:resizeableActivity="true"
+            android:supportsPictureInPicture="true"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout"
+            android:launchMode="standard"
+            android:taskAffinity=":container2"/>
+        <activity
+            android:name="org.qiyi.pluginlibrary.component.InstrActivityProxyPip1"
+            android:resizeableActivity="true"
+            android:supportsPictureInPicture="true"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout"
+            android:launchMode="standard"
+            android:process=":plugin1"
+            android:taskAffinity=":container2"/>
+        <activity
+            android:name="org.qiyi.pluginlibrary.component.InstrActivityProxyPip2"
+            android:resizeableActivity="true"
+            android:supportsPictureInPicture="true"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout"
+            android:launchMode="standard"
+            android:process=":plugin2"
+            android:taskAffinity=":container2"/>
+
         <!-- standard 处理横竖屏变化的Activity，可废弃 -->
         <activity
             android:name="org.qiyi.pluginlibrary.component.InstrActivityProxyHandleConfigChange0"
@@ -127,6 +152,12 @@
             android:name="org.qiyi.pluginlibrary.component.ServiceProxy3"
             android:process=":downloader" />
 
+        <provider
+            android:name="org.qiyi.pluginlibrary.component.ContentProviderProxy1"
+            android:authorities="${applicationId}.neptune.provider1"
+            android:exported="false"
+            android:grantUriPermissions="true"
+            android:process=":plugin1"/>
     </application>
 
 </manifest>

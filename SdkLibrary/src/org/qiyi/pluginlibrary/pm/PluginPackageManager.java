@@ -22,9 +22,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Parcelable;
 import android.os.Process;
 import android.os.RemoteException;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.text.TextUtils;
 
 import org.json.JSONArray;
@@ -34,7 +38,9 @@ import org.qiyi.pluginlibrary.constant.IntentConstant;
 import org.qiyi.pluginlibrary.error.ErrorType;
 import org.qiyi.pluginlibrary.install.IActionFinishCallback;
 import org.qiyi.pluginlibrary.install.IInstallCallBack;
+import org.qiyi.pluginlibrary.install.IUninstallCallBack;
 import org.qiyi.pluginlibrary.install.PluginInstaller;
+import org.qiyi.pluginlibrary.install.PluginUninstaller;
 import org.qiyi.pluginlibrary.runtime.PluginManager;
 import org.qiyi.pluginlibrary.utils.ContextUtils;
 import org.qiyi.pluginlibrary.utils.ErrorUtil;
@@ -74,7 +80,7 @@ public class PluginPackageManager {
      */
     public static final String ACTION_HANDLE_PLUGIN_EXCEPTION = "handle_plugin_exception";
 
-    public static final int DELETE_SUCCEEDED = 1;
+    public static final int DELETE_SUCCESS = 1;
     public static final int INSTALL_SUCCESS = 2;
     public static final int INSTALL_FAILED = -2;
     public static final int UNINSTALL_SUCCESS = 3;
@@ -89,6 +95,7 @@ public class PluginPackageManager {
     @SuppressWarnings("StaticFieldLeak")
     private static volatile PluginPackageManager sInstance = null;
     private Context mContext;
+    // 每个进程传递到主进程的Callback回调
     private ConcurrentHashMap<String, IActionFinishCallback> mActionFinishCallbacks =
             new ConcurrentHashMap<String, IActionFinishCallback>();
     // 插件PackageInfo的缓存
@@ -97,6 +104,12 @@ public class PluginPackageManager {
     // 已安装插件列表
     private ConcurrentHashMap<String, PluginLiteInfo> mInstalledPlugins =
             new ConcurrentHashMap<>();
+    // 主进程回调的Handler
+    private Handler mHandler = new Handler(Looper.getMainLooper());
+
+    /* 存放正在安装的插件列表 */
+    private List<String> mInstallingList = Collections.synchronizedList(new LinkedList<String>());
+
     private boolean mInstallerReceiverRegistered = false;
     /**
      * 插件安装任务列表
@@ -113,62 +126,47 @@ public class PluginPackageManager {
 
         @Override
         public void onReceive(Context context, Intent intent) {
-
-            try {
-                String action = intent.getAction();
-                if (ACTION_PACKAGE_INSTALLED.equals(action)) {
-                    // 插件安装成功
-                    PluginLiteInfo pkgInfo = intent.getParcelableExtra(IntentConstant.EXTRA_PLUGIN_INFO);
-                    if (pkgInfo == null) {
-                        pkgInfo = new PluginLiteInfo();
-                        String pkgName = intent.getStringExtra(IntentConstant.EXTRA_PKG_NAME);
-                        String destApkPath = intent.getStringExtra(IntentConstant.EXTRA_DEST_FILE);
-                        pkgInfo.packageName = pkgName;
-                        pkgInfo.srcApkPath = destApkPath;
-                        pkgInfo.installStatus = PluginLiteInfo.PLUGIN_INSTALLED;
-                    }
-
-                    if (TextUtils.isEmpty(pkgInfo.packageName)) {
-                        PluginDebugLog.installFormatLog(TAG, "plugin install received wrong broadcast with empty packageName");
-                        return;
-                    }
-                    // 回调给应用层
-                    onPackageInstalled(pkgInfo);
-                } else if (ACTION_PACKAGE_INSTALLFAIL.equals(action)) {
-                    // 插件安装失败
-                    PluginLiteInfo pkgInfo = intent.getParcelableExtra(IntentConstant.EXTRA_PLUGIN_INFO);
-                    if (pkgInfo == null) {
-                        pkgInfo = new PluginLiteInfo();
-                        String pkgName = intent.getStringExtra(IntentConstant.EXTRA_PKG_NAME);
-                        String filePath = intent.getStringExtra(IntentConstant.EXTRA_SRC_FILE);
-                        if (!TextUtils.isEmpty(pkgName)) {
-                            pkgInfo.packageName = pkgName;
-                        } else if (!TextUtils.isEmpty(filePath)) {
-                            pkgInfo.packageName = PluginInstaller.extractPkgNameFromPath(filePath);
-                        }
-                        pkgInfo.installStatus = PluginLiteInfo.PLUGIN_UNINSTALLED;
-                    }
-                    if (TextUtils.isEmpty(pkgInfo.packageName)) {
-                        PluginDebugLog.installFormatLog(TAG, "plugin install received wrong broadcast with empty packageName");
-                        return;
-                    }
-
-                    // 失败原因
-                    int failReason = intent.getIntExtra(ErrorType.ERROR_REASON, ErrorType.SUCCESS);
-                    // 回调给应用层
-                    onPackageInstallFailed(pkgInfo, failReason);
-                } else if (TextUtils.equals(ACTION_HANDLE_PLUGIN_EXCEPTION, action)) {
+            String action = intent.getAction();
+            if (ACTION_PACKAGE_INSTALLED.equals(action)) {
+                // 插件安装成功
+                PluginLiteInfo pkgInfo = intent.getParcelableExtra(IntentConstant.EXTRA_PLUGIN_INFO);
+                if (pkgInfo == null) {
+                    pkgInfo = new PluginLiteInfo();
                     String pkgName = intent.getStringExtra(IntentConstant.EXTRA_PKG_NAME);
-                    String exception = intent.getStringExtra(ErrorType.ERROR_REASON);
-                    PluginDebugLog.installFormatLog(TAG,
-                            "plugin install exception:%s,exception:%s", pkgName
-                            , exception);
-                    if (null != sPluginInfoProvider && !TextUtils.isEmpty(pkgName)) {
-                        sPluginInfoProvider.handlePluginException(pkgName, exception);
-                    }
+                    String destApkPath = intent.getStringExtra(IntentConstant.EXTRA_DEST_FILE);
+                    pkgInfo.packageName = pkgName;
+                    pkgInfo.srcApkPath = destApkPath;
                 }
-            } catch (Exception e) {
-                ErrorUtil.throwErrorIfNeed(e);
+                pkgInfo.installStatus = PluginLiteInfo.PLUGIN_INSTALLED;
+
+                // 回调给应用层
+                String key = pkgInfo.packageName + "_" + pkgInfo.pluginVersion;
+                IInstallCallBack callback = listenerMap.get(key);
+                onPackageInstalled(pkgInfo, callback);
+            } else if (ACTION_PACKAGE_INSTALLFAIL.equals(action)) {
+                // 插件安装失败
+                PluginLiteInfo pkgInfo = intent.getParcelableExtra(IntentConstant.EXTRA_PLUGIN_INFO);
+                if (pkgInfo == null) {
+                    pkgInfo = new PluginLiteInfo();
+                    String pkgName = intent.getStringExtra(IntentConstant.EXTRA_PKG_NAME);
+                    pkgInfo.packageName = pkgName;
+                }
+                pkgInfo.installStatus = PluginLiteInfo.PLUGIN_UNINSTALLED;
+                // 失败原因
+                int failReason = intent.getIntExtra(ErrorType.ERROR_REASON, ErrorType.SUCCESS);
+                // 回调给应用层
+                String key = pkgInfo.packageName + "_" + pkgInfo.pluginVersion;
+                IInstallCallBack callback = listenerMap.get(key);
+                onPackageInstallFailed(pkgInfo, failReason, callback);
+            } else if (TextUtils.equals(ACTION_HANDLE_PLUGIN_EXCEPTION, action)) {
+                String pkgName = intent.getStringExtra(IntentConstant.EXTRA_PKG_NAME);
+                String exception = intent.getStringExtra(ErrorType.ERROR_REASON);
+                PluginDebugLog.installFormatLog(TAG,
+                        "plugin install exception:%s,exception:%s", pkgName
+                        , exception);
+                if (null != sPluginInfoProvider && !TextUtils.isEmpty(pkgName)) {
+                    sPluginInfoProvider.handlePluginException(pkgName, exception);
+                }
             }
         }
     };
@@ -287,7 +285,7 @@ public class PluginPackageManager {
 
                 jArray.put(jObj);
             } catch (JSONException e) {
-                // ingore
+                // ignore
             }
         }
         editor.putString(PLUGIN_INSTALL_KEY, jArray.toString());
@@ -366,12 +364,30 @@ public class PluginPackageManager {
     }
 
     /**
+     * 添加到安装中列表
+     */
+    private synchronized void add2InstallList(String packageName) {
+        if (mInstallingList.contains(packageName)) {
+            return;
+        }
+        PluginDebugLog.installFormatLog(TAG, "add2InstallList with %s", packageName);
+        mInstallingList.add(packageName);
+    }
+
+    /**
+     * 查看某个app是否正在安装
+     */
+    public synchronized boolean isPackageInstalling(String packageName) {
+        return mInstallingList.contains(packageName);
+    }
+
+    /**
      * 执行依赖于安装包的 runnable，如果该package已经安装，则立即执行。如果pluginapp正在初始化，或者该包正在安装，
      * 则放到任务队列中等待安装完毕执行。
      */
-    public void packageAction(PluginLiteInfo packageInfo, IInstallCallBack callBack) {
+    void packageAction(PluginLiteInfo packageInfo, IInstallCallBack callBack) {
         boolean packageInstalled = isPackageInstalled(packageInfo.packageName);
-        boolean installing = PluginInstaller.isInstalling(packageInfo.packageName);
+        boolean installing = isPackageInstalling(packageInfo.packageName);
         PluginDebugLog.installLog(TAG, "packageAction , " + packageInfo.packageName + " installed : "
                 + packageInstalled + " installing: " + installing);
 
@@ -402,40 +418,36 @@ public class PluginPackageManager {
     }
 
     /**
-     * 执行队列中等待的Action，回调给上层
+     * 执行队列中等待的Action，回调给上层的加载器
      */
     private void executePackageAction(
-            PluginLiteInfo packageInfo, boolean isSuccess, int failReason) {
-        if (packageInfo == null) {
-            return;
-        }
-
-        ArrayList<PackageAction> executeList = new ArrayList<>();
-        String packageName = packageInfo.packageName;
-        if (!TextUtils.isEmpty(packageName)) {
-            for (PackageAction action : mPackageActions) {
-                if (packageName.equals(action.packageName)) {
-                    executeList.add(action);
+            PluginLiteInfo packageInfo, boolean success, int failReason) {
+        final ArrayList<PackageAction> executeList = new ArrayList<>();
+        synchronized (this) {
+            String packageName = packageInfo.packageName;
+            if (!TextUtils.isEmpty(packageName)) {
+                for (PackageAction action : mPackageActions) {
+                    if (packageName.equals(action.packageName)) {
+                        executeList.add(action);
+                    }
                 }
             }
-        }
 
-        synchronized (this) {
             for (PackageAction action : executeList) {
                 mPackageActions.remove(action);
             }
-        }
 
-        for (PackageAction action : executeList) {
-            if (action.callBack != null) {
-                try {
-                    if (isSuccess) {
-                        action.callBack.onPackageInstalled(packageInfo);
-                    } else {
-                        action.callBack.onPackageInstallFail(packageInfo, failReason);
+            for (PackageAction action : executeList) {
+                if (action.callBack != null) {
+                    try {
+                        if (success) {
+                            action.callBack.onPackageInstalled(packageInfo);
+                        } else {
+                            action.callBack.onPackageInstallFail(packageInfo, failReason);
+                        }
+                    } catch (RemoteException e) {
+                        // ignore
                     }
-                } catch (RemoteException e) {
-                    // ignore
                 }
             }
         }
@@ -448,8 +460,7 @@ public class PluginPackageManager {
     private void clearExpiredPkgAction() {
         long currentTime = System.currentTimeMillis();
 
-        ArrayList<PackageAction> deletedList = new ArrayList<PackageAction>();
-
+        final ArrayList<PackageAction> deletedList = new ArrayList<PackageAction>();
         synchronized (this) {
             // 查找需要删除的
             for (PackageAction action : mPackageActions) {
@@ -464,7 +475,6 @@ public class PluginPackageManager {
                     if (action != null && action.callBack != null) {
                         action.callBack.onPackageInstallFail(action.pkgInfo, ErrorType.INSTALL_ERROR_CLIENT_TIME_OUT);
                     }
-
                 } catch (RemoteException e) {
                     // ignore
                 }
@@ -475,7 +485,7 @@ public class PluginPackageManager {
     /**
      * 设置Action执行完成的Callback回调
      */
-    public void setActionFinishCallback(IActionFinishCallback callback) {
+    void setActionFinishCallback(IActionFinishCallback callback) {
         if (callback != null) {
             try {
                 String processName = callback.getProcessName();
@@ -492,60 +502,60 @@ public class PluginPackageManager {
     /**
      * 插件安装成功，回调给应用层
      */
-    private void onPackageInstalled(PluginLiteInfo pkgInfo) {
+    private void onPackageInstalled(PluginLiteInfo pkgInfo, @Nullable IInstallCallBack callback) {
         PluginDebugLog.installFormatLog(TAG, "plugin install success: %s", pkgInfo.packageName);
         // 先更新内存状态，再回调给上层
         mInstalledPlugins.put(pkgInfo.packageName, pkgInfo);
         saveInstallPluginInfos();
-
-        IInstallCallBack callback = listenerMap.get(pkgInfo.packageName);
+        String key = pkgInfo.packageName + "_" + pkgInfo.pluginVersion;
         if (callback != null) {
             try {
                 callback.onPackageInstalled(pkgInfo);
             } catch (RemoteException e) {
                 // ignore
             } finally {
-                listenerMap.remove(pkgInfo.packageName);
+                listenerMap.remove(key);
             }
         }
+        mInstallingList.remove(pkgInfo.packageName);
         // 等待执行的安装action直接回调
         executePackageAction(pkgInfo, true, 0);
-        onActionFinish(pkgInfo.packageName, INSTALL_SUCCESS);
+        onActionFinish(pkgInfo, INSTALL_SUCCESS);
     }
 
     /**
      * 插件安装失败，回调给应用层
      */
-    private void onPackageInstallFailed(PluginLiteInfo pkgInfo, int failReason) {
+    private void onPackageInstallFailed(PluginLiteInfo pkgInfo, int failReason, IInstallCallBack callback) {
         PluginDebugLog.installFormatLog(TAG,
                 "plugin install fail:%s,reason:%d ", pkgInfo.packageName, failReason);
-        IInstallCallBack callBack = listenerMap.get(pkgInfo.packageName);
-        if (callBack != null) {
+        String key = pkgInfo.packageName + "_" + pkgInfo.pluginVersion;
+        pkgInfo.statusCode = failReason;
+        if (callback != null) {
             try {
-                callBack.onPackageInstallFail(pkgInfo, failReason);
+                callback.onPackageInstallFail(pkgInfo, failReason);
             } catch (RemoteException e) {
                 // ignore
             } finally {
-                listenerMap.remove(pkgInfo.packageName);
+                listenerMap.remove(key);
             }
         }
+        mInstallingList.remove(pkgInfo.packageName);
         // 等待执行的安装action直接回调
         executePackageAction(pkgInfo, false, failReason);
-        onActionFinish(pkgInfo.packageName, INSTALL_FAILED);
+        onActionFinish(pkgInfo, INSTALL_FAILED);
     }
 
     /**
      * Action执行完成，回调给Client端
      */
-    private void onActionFinish(String packageName, int errorCode) {
+    private void onActionFinish(PluginLiteInfo liteInfo, int resultCode) {
         for (Map.Entry<String, IActionFinishCallback> entry : mActionFinishCallbacks.entrySet()) {
             IActionFinishCallback callback = entry.getValue();
-            if (callback != null) {
-                try {
-                    callback.onActionComplete(packageName, errorCode);
-                } catch (RemoteException e) {
-                    // ignore
-                }
+            try {
+                callback.onActionComplete(liteInfo, resultCode);
+            } catch (RemoteException e) {
+                // ignore
             }
         }
     }
@@ -565,7 +575,7 @@ public class PluginPackageManager {
     /**
      * 判断一个package是否安装
      */
-    public boolean isPackageInstalled(String packageName) {
+    boolean isPackageInstalled(String packageName) {
         if (sPluginInfoProvider != null) {
             return sPluginInfoProvider.isPackageInstalled(packageName);
         }
@@ -575,7 +585,7 @@ public class PluginPackageManager {
     /**
      * 获取安装apk的信息
      */
-    public PluginLiteInfo getPackageInfo(String packageName) {
+    PluginLiteInfo getPackageInfo(String packageName) {
         if (TextUtils.isEmpty(packageName)) {
             PluginDebugLog.log(TAG, "getPackageInfo return null due to empty package name");
             return null;
@@ -607,30 +617,93 @@ public class PluginPackageManager {
      * 启动Service进行安装操作，安装完成会有 {@link #ACTION_PACKAGE_INSTALLED} 广播。
      *
      * @param pluginInfo 插件信息
-     * @param listener   监听器
+     * @param callback   监听器
      */
-    public void install(PluginLiteInfo pluginInfo, IInstallCallBack listener) {
+    void install(PluginLiteInfo pluginInfo, final IInstallCallBack callback) {
         registerInstallReceiver();  //注册广播
-        // 安装插件前，先清理部分遗留数据
-        deletePackage(pluginInfo, null);
-
-        listenerMap.put(pluginInfo.packageName, listener);
-        PluginDebugLog.installLog(TAG, "install plugin: " + pluginInfo);
-        try {
-            PluginInstaller.install(mContext, pluginInfo);
-        } catch (Exception e) {
-            onPackageInstallFailed(pluginInfo, ErrorType.INSTALL_ERROR_BEFORE_START_SERVICE);
+        // 安装插件前，先清理apk,dex,so库等数据
+        // 插件运行与插件更新可能并发执行，导致插件出现 ClassNotFoundException, 尝试更新时不清除旧插件，下次启动时再清除
+        if (pluginInfo.deletePackageBeforeInstall) {
+            deletePackage(pluginInfo, null, false);
         }
+
+        String key = pluginInfo.packageName + "_" + pluginInfo.pluginVersion;
+        listenerMap.put(key, callback);
+        // 添加到下载中列表
+        add2InstallList(pluginInfo.packageName);
+
+        PluginDebugLog.installLog(TAG, "install plugin: " + pluginInfo);
+        PluginInstaller.startInstall(mContext, pluginInfo, new IInstallCallBack.Stub() {
+            @Override
+            public void onPackageInstalled(final PluginLiteInfo info) throws RemoteException {
+                if (Looper.myLooper() == Looper.getMainLooper()) {
+                    PluginPackageManager.this.onPackageInstalled(info, callback);
+                } else {
+                    mHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            PluginPackageManager.this.onPackageInstalled(info, callback);
+                        }
+                    });
+                }
+            }
+
+            @Override
+            public void onPackageInstallFail(final PluginLiteInfo info, final int failReason) throws RemoteException {
+                if (Looper.myLooper() == Looper.getMainLooper()) {
+                    PluginPackageManager.this.onPackageInstallFailed(info, failReason, callback);
+                } else {
+                    mHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            PluginPackageManager.this.onPackageInstallFailed(info, failReason, callback);
+                        }
+                    });
+                }
+            }
+        });
     }
 
     /**
-     * 删除安装包。 卸载插件应用程序,目前只有在升级时调用此方法，把插件状态改成upgrading状态
+     * 删除安装包
+     * 只清理插件apk，dex和so库，不删除缓存文件
      *
      * @param packageInfo 需要删除的package 的 PluginLiteInfo
-     * @param observer    卸载结果回调
      */
-    private void deletePackage(final PluginLiteInfo packageInfo, IPluginUninstallCallBack observer) {
-        deletePackage(packageInfo, observer, false, true);
+    void clearPackage(@NonNull PluginLiteInfo packageInfo, IUninstallCallBack callback) {
+        deletePackage(packageInfo, null, false);
+        // 回调给应用层
+        if (callback != null) {
+            try {
+                callback.onPackageUninstalled(packageInfo, DELETE_SUCCESS);
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
+        }
+        onActionFinish(packageInfo, DELETE_SUCCESS);
+    }
+
+    /**
+     * 卸载插件，删除所有相关文件
+     */
+    void uninstall(@NonNull PluginLiteInfo packageInfo, IUninstallCallBack callback) {
+        String packageName = packageInfo.packageName;
+        PluginDebugLog.installFormatLog(TAG, "uninstall plugin:%s ", packageName);
+
+        String apkPath = packageInfo.srcApkPath;
+        File apkFile = new File(apkPath);
+        boolean uninstallFlag = apkFile.exists() && apkFile.delete();
+
+        deletePackage(packageInfo, null, true);
+        // 回调给应用层
+        if (callback != null) {
+            try {
+                callback.onPackageUninstalled(packageInfo, uninstallFlag ? UNINSTALL_SUCCESS : UNINSTALL_FAILED);
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
+        }
+        onActionFinish(packageInfo, uninstallFlag ? UNINSTALL_SUCCESS : UNINSTALL_FAILED);
     }
 
     /**
@@ -639,108 +712,50 @@ public class PluginPackageManager {
      * @param packageInfo 需要删除的package 的 PluginLiteInfo
      * @param observer    卸载结果回调
      * @param deleteData  是否删除生成的data
-     * @param upgrading   是否是升级之前的操作
      */
-    private void deletePackage(final PluginLiteInfo packageInfo, IPluginUninstallCallBack observer,
-                               boolean deleteData, boolean upgrading) {
+    private void deletePackage(@NonNull PluginLiteInfo packageInfo, @Nullable IUninstallCallBack observer,
+                               boolean deleteData) {
+        String packageName = packageInfo.packageName;
+        PluginDebugLog.installFormatLog(TAG, "delete plugin :%s, deleteData:%s", packageName
+                , String.valueOf(deleteData));
 
-        if (packageInfo != null) {
-            String packageName = packageInfo.packageName;
-            PluginDebugLog.installFormatLog(TAG, "delete plugin :%s,deleteData:%s,upgrading:%s", packageName
-                    , String.valueOf(deleteData), String.valueOf(upgrading));
-
-            try {
-                // 先停止运行插件
-                PluginManager.exitPlugin(packageName);
-            } catch (Exception e) {
-                ErrorUtil.throwErrorIfNeed(e);
-            }
-
-            if (deleteData) {
-                // 删除生成的data数据文件
-                // 清除environment中相关的数据:按前缀匹配
-                PluginInstaller.deletePluginData(mContext, packageName);
-            }
-
-            //删除安装文件，apk，dex，so
-            PluginInstaller.deleteInstallerPackage(
-                    mContext, packageInfo, packageName);
-            mPackageInfoCache.remove(packageName);
-
-            // 回调
+        // 先停止正在运行中的插件
+        PluginManager.exitPlugin(packageName);
+        // 先删除安装文件，apk，dex，so
+        PluginUninstaller.deleteInstallerPackage(mContext, packageInfo);
+        if (deleteData) {
+            // 删除生成的data数据文件
+            PluginUninstaller.deletePluginData(mContext, packageName);
+        }
+        // 清理内存数据
+        mPackageInfoCache.remove(packageName);
+        mInstalledPlugins.remove(packageName);
+        saveInstallPluginInfos();
+        // 发送广播给插件进程，清理PluginLoadedApk数据
+        try {
+            Intent intent = new Intent(PluginPackageManager.ACTION_PACKAGE_UNINSTALL);
+            intent.setPackage(mContext.getPackageName());
+            intent.putExtra(IntentConstant.EXTRA_PKG_NAME, packageInfo.packageName);
+            intent.putExtra(IntentConstant.EXTRA_PLUGIN_INFO, (Parcelable) packageInfo);// 同时返回APK的插件信息
+            mContext.sendBroadcast(intent);
+        } catch (Exception e) {
+            ErrorUtil.throwErrorIfNeed(e);
+        } finally {
+            // 回调给应用层
             if (observer != null) {
                 try {
-                    observer.onPluginUninstall(packageName, DELETE_SUCCEEDED);
+                    observer.onPackageUninstalled(packageInfo, DELETE_SUCCESS);
                 } catch (RemoteException e) {
                     e.printStackTrace();
                 }
-                // 发送广播给插件进程，清理PluginLoadedApk数据
-                try {
-                    Intent intent = new Intent(PluginPackageManager.ACTION_PACKAGE_UNINSTALL);
-                    intent.setPackage(mContext.getPackageName());
-                    intent.putExtra(IntentConstant.EXTRA_PKG_NAME, packageInfo.packageName);
-                    intent.putExtra(IntentConstant.EXTRA_PLUGIN_INFO, (Parcelable) packageInfo);// 同时返回APK的插件信息
-                    mContext.sendBroadcast(intent);
-                } catch (Exception e) {
-                    ErrorUtil.throwErrorIfNeed(e);
-                }
             }
         }
-    }
-
-    /**
-     * 卸载插件，删除文件
-     */
-    public boolean uninstall(final PluginLiteInfo packageInfo) {
-
-        boolean uninstallFlag = false;
-
-        if (packageInfo != null) {
-            String packageName = packageInfo.packageName;
-            PluginDebugLog.installFormatLog(TAG, "uninstall plugin:%s ", packageName);
-            try {
-                if (TextUtils.isEmpty(packageName)) {
-                    PluginDebugLog.installLog(TAG, "uninstall plugin pkgName is empty return");
-                    return false;
-                }
-
-                String apkPath = packageInfo.srcApkPath;
-                if (!TextUtils.isEmpty(apkPath)) {
-                    File apk = new File(apkPath);
-                    if (apk.exists()) {
-                        uninstallFlag = apk.delete();
-                    }
-                }
-
-                if (uninstallFlag) {
-                    deletePackage(packageInfo, new IPluginUninstallCallBack.Stub() {
-                        @Override
-                        public void onPluginUninstall(String packageName, int resultCode) throws RemoteException {
-                            PluginDebugLog.runtimeFormatLog(TAG, "onPluginUninstall %s", packageName);
-                        }
-                    });
-                }
-            } catch (Exception e) {
-                uninstallFlag = false;
-            }
-
-            if (uninstallFlag) {
-                mPackageInfoCache.remove(packageName);
-
-                mInstalledPlugins.remove(packageName);
-                saveInstallPluginInfos();
-            }
-
-            onActionFinish(packageName, uninstallFlag ? UNINSTALL_SUCCESS : UNINSTALL_FAILED);
-        }
-
-        return uninstallFlag;
     }
 
     /**
      * 判断能否安装该插件
      */
-    public boolean canInstallPackage(PluginLiteInfo info) {
+    boolean canInstallPackage(PluginLiteInfo info) {
         if (sPluginInfoProvider != null) {
             return sPluginInfoProvider.canInstallPackage(info);
         }
@@ -750,7 +765,7 @@ public class PluginPackageManager {
     /**
      * 判断能否卸载插件
      */
-    public boolean canUninstallPackage(PluginLiteInfo info) {
+    boolean canUninstallPackage(PluginLiteInfo info) {
         if (sPluginInfoProvider != null) {
             return sPluginInfoProvider.canUninstallPackage(info);
         }
@@ -760,7 +775,7 @@ public class PluginPackageManager {
     /**
      * 获取插件的PluginPackageInfo信息
      */
-    public PluginPackageInfo getPluginPackageInfo(String pkgName) {
+    PluginPackageInfo getPluginPackageInfo(String pkgName) {
         PluginPackageInfo result = null;
         if (!TextUtils.isEmpty(pkgName)) {
             result = mPackageInfoCache.get(pkgName);
@@ -868,7 +883,10 @@ public class PluginPackageManager {
      */
     PluginLiteInfo getPackageInfoDirectly(String packageName) {
         PluginLiteInfo liteInfo = null;
-        if (!TextUtils.isEmpty(packageName) && sPluginInfoProvider != null) {
+        if (TextUtils.isEmpty(packageName)) {
+            return liteInfo;
+        }
+        if (sPluginInfoProvider != null) {
             liteInfo = sPluginInfoProvider.getPackageInfoDirectly(packageName);
         } else {
             PluginDebugLog.runtimeLog(TAG, "[warning] sPluginInfoProvider is null");

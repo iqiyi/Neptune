@@ -30,10 +30,12 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 import dalvik.system.DexFile;
@@ -70,7 +72,7 @@ public class MultiDex {
         }
 
         if (Build.VERSION.SDK_INT > MAX_SUPPORTED_SDK_VERSION) {
-            PluginDebugLog.warningLog(TAG, "MultiDex is not guaranteed to work in SDK version "
+            PluginDebugLog.runtimeLog(TAG, "MultiDex is not guaranteed to work in SDK version "
                     + Build.VERSION.SDK_INT + ": SDK version higher than "
                     + MAX_SUPPORTED_SDK_VERSION + " should be backed by "
                     + "runtime with built-in multidex capabilty but it's not the "
@@ -79,9 +81,15 @@ public class MultiDex {
             return;
         }
 
+        String sourceApk = !TextUtils.isEmpty(apkPath) ? apkPath : packageInfo.getApplicationInfo().sourceDir;
+
+        if (!hasSecondaryDex(sourceApk)) {
+            PluginDebugLog.runtimeLog(TAG, sourceApk + " has only one dex.");
+            return;
+        }
+
         String pkgName = packageInfo.getPackageName();
         File dataDir = new File(packageInfo.getDataDir());
-        String sourceApk = !TextUtils.isEmpty(apkPath) ? apkPath : packageInfo.getApplicationInfo().sourceDir;
         File dexDir = getDexDir(dataDir, SECONDARY_DEX_FOLDER_NAME);
 
         MultiDexExtractor extractor = new MultiDexExtractor(pkgName, new File(sourceApk), dexDir);
@@ -98,6 +106,30 @@ public class MultiDex {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    /**
+     * 检查是否包含 multi dex
+     * @param apkPath apk
+     * @return true or false
+     */
+    private static boolean hasSecondaryDex(String apkPath) {
+        ZipFile apk = null;
+        try {
+            apk = new ZipFile(apkPath);
+            Enumeration<? extends ZipEntry> entries = apk.entries();
+            while (entries.hasMoreElements()) {
+                ZipEntry entry = entries.nextElement();
+                if ("classes2.dex".equals(entry.getName())) {
+                    return true;
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            FileUtils.closeQuietly(apk);
+        }
+        return false;
     }
 
     /**

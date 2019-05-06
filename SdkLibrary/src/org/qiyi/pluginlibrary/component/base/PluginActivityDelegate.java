@@ -56,7 +56,7 @@ class PluginActivityDelegate implements InterfaceToGetHost {
         mPlugin = PluginManager.findPluginLoadedApkByClassLoader(activity.getClass().getClassLoader());
         if (mPlugin != null) {
             // 生成插件的Base Context
-            newBase = new PluginContextWrapper(newBase, mPlugin.getPluginPackageName());
+            newBase = new PluginContextWrapper(newBase, mPlugin);
         }
 
         if (PluginDebugLog.isDebug()) {
@@ -108,7 +108,7 @@ class PluginActivityDelegate implements InterfaceToGetHost {
         if (mBase instanceof PluginContextWrapper) {
             PluginDebugLog.runtimeLog(TAG, "activity " + activity.getClass().getName() + " base context already be replaced");
         } else if (mPlugin != null) {
-            mBase = new PluginContextWrapper(mBase, mPlugin.getPluginPackageName());
+            mBase = new PluginContextWrapper(mBase, mPlugin);
             // 反射替换mBase成员变量
             ReflectionUtils.on(activity, ContextWrapper.class).set("mBase", mBase);
             ReflectionUtils.on(activity, ContextThemeWrapper.class).setNoException("mBase", mBase);

@@ -124,7 +124,8 @@ class AarDependenceInfo extends DependenceInfo {
 
     private boolean findManifestV32(Project project, ApkVariant variant) {
         File intermediateDir = new File(project.buildDir, "intermediates")
-        String[] middleName = ["merged_manifests", "aapt_friendly_merged_manifests"]
+        // 3.2在merged_manifests目录，3.3在library_manifests目录
+        String[] middleName = ["library_manifest", "merged_manifests", "aapt_friendly_merged_manifests"]
         for (String name : middleName) {
             File middleDir = FileUtils.join(intermediateDir, name)
             List<String> buildTypes = new ArrayList<>()
@@ -134,14 +135,24 @@ class AarDependenceInfo extends DependenceInfo {
             }
 
             for (String buildType : buildTypes) {
-                File buildTypeDir = FileUtils.join(middleDir, buildType, "process${buildType.capitalize()}Manifest")
+                File buildTypeDir
+                if (name.startsWith("library")
+                        || Utils.isAgpAbove34()) {
+                    // 3.4以上没有processXXXMainfest目录
+                    buildTypeDir = FileUtils.join(middleDir, buildType)
+                } else {
+                    buildTypeDir = FileUtils.join(middleDir, buildType, "process${buildType.capitalize()}Manifest")
+                }
                 File targetManifest
                 if (name.startsWith("aapt")) {
                     targetManifest = FileUtils.join(buildTypeDir, "aapt", "AndroidManifest.xml")
+                } else if (name.startsWith("library")) {
+                    targetManifest = FileUtils.join(buildTypeDir, "AndroidManifest.xml")
                 } else {
                     targetManifest = FileUtils.join(buildTypeDir, "merged", "AndroidManifest.xml")
                 }
                 if (targetManifest.exists()) {
+                    println "findManifestV32 for project ${project.name} in path: ${targetManifest.absolutePath}"
                     aarManifestFile = targetManifest
                     return true
                 }
@@ -166,6 +177,7 @@ class AarDependenceInfo extends DependenceInfo {
 
                 File targetManifest = FileUtils.join(buildTypeDir, "AndroidManifest.xml")
                 if (targetManifest.exists()) {
+                    println "findManifestV30 for project ${project.name} in path: ${targetManifest}"
                     aarManifestFile = targetManifest
                     return true
                 }

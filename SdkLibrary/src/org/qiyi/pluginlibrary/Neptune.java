@@ -23,12 +23,13 @@ import android.app.Application;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.pm.PackageInfo;
 
 import org.qiyi.pluginlibrary.component.wraper.NeptuneInstrument;
 import org.qiyi.pluginlibrary.component.wraper.PluginInstrument;
 import org.qiyi.pluginlibrary.install.IInstallCallBack;
-import org.qiyi.pluginlibrary.pm.IPluginUninstallCallBack;
+import org.qiyi.pluginlibrary.install.IUninstallCallBack;
 import org.qiyi.pluginlibrary.pm.PluginLiteInfo;
 import org.qiyi.pluginlibrary.pm.PluginPackageManagerNative;
 import org.qiyi.pluginlibrary.runtime.PluginManager;
@@ -79,7 +80,7 @@ public class Neptune {
         // 调用getInstance()方法会初始化bindService
         PluginPackageManagerNative.getInstance(sHostContext).setPackageInfoManager(sGlobalConfig.getPluginInfoProvider());
         // 注册卸载监听广播
-        PluginManager.registerUninstallReceiver(sHostContext);
+        //PluginManager.registerUninstallReceiver(sHostContext);
     }
 
     public static Context getHostContext() {
@@ -87,6 +88,9 @@ public class Neptune {
     }
 
     public static NeptuneConfig getConfig() {
+        if (sGlobalConfig == null) {
+            sGlobalConfig = new NeptuneConfig.NeptuneConfigBuilder().build();
+        }
         return sGlobalConfig;
     }
 
@@ -186,6 +190,45 @@ public class Neptune {
 
 
     /**
+     * 根据包名删除插件apk，so，dex等数据
+     *
+     * @param context  宿主的Context
+     * @param pkgName  待删除插件的包名
+     */
+    public static void deletePackage(Context context, String pkgName) {
+        deletePackage(context, pkgName, null);
+    }
+
+
+    /**
+     * 根据包名删除插件apk，so，dex等数据
+     *
+     * @param context  宿主的Context
+     * @param pkgName  待删除插件的包名
+     * @param callBack  卸载回调
+     */
+    public static void deletePackage(Context context, String pkgName, IUninstallCallBack callBack) {
+        Context mContext = ensureContext(context);
+        PluginLiteInfo info = PluginPackageManagerNative.getInstance(mContext).getPackageInfo(pkgName);
+        if (info != null) {
+            deletePackage(mContext, info, callBack);
+        }
+    }
+
+    /**
+     * 删除插件apk，dex，so等数据
+     *
+     * @param context 宿主的Context
+     * @param info    待删除插件的信息，包括包名，路径等
+     * @param callBack 卸载回调
+     */
+    public static void deletePackage(Context context, PluginLiteInfo info, IUninstallCallBack callBack) {
+        // uninstall
+        Context mContext = ensureContext(context);
+        PluginPackageManagerNative.getInstance(mContext).deletePackage(info, callBack);
+    }
+
+    /**
      * 根据包名卸载一个插件
      *
      * @param context  宿主的Context
@@ -203,7 +246,7 @@ public class Neptune {
      * @param pkgName  待卸载插件的包名
      * @param callBack  卸载回调
      */
-    public static void uninstall(Context context, String pkgName, IPluginUninstallCallBack callBack) {
+    public static void uninstall(Context context, String pkgName, IUninstallCallBack callBack) {
         Context mContext = ensureContext(context);
         PluginLiteInfo info = PluginPackageManagerNative.getInstance(mContext).getPackageInfo(pkgName);
         if (info != null) {
@@ -218,7 +261,7 @@ public class Neptune {
      * @param info    待卸载插件的信息，包括包名，路径等
      * @param callBack 卸载回调
      */
-    public static void uninstall(Context context, PluginLiteInfo info, IPluginUninstallCallBack callBack) {
+    public static void uninstall(Context context, PluginLiteInfo info, IUninstallCallBack callBack) {
         // uninstall
         Context mContext = ensureContext(context);
         PluginPackageManagerNative.getInstance(mContext).uninstall(info, callBack);
@@ -256,6 +299,19 @@ public class Neptune {
     public static void launchPlugin(Context mHostContext, Intent intent, String processName) {
         // start plugin, 指定进程
         PluginManager.launchPlugin(mHostContext, intent, processName);
+    }
+
+    /**
+     * 根据Intent启动一个插件，支持ServiceConnection
+     *
+     * @param mHostContext  宿主的Context
+     * @param intent 需要启动的插件Intent
+     * @param sc  ServiceConnection
+     * @param processName 运行的进程名
+     */
+    public static void launchPlugin(Context mHostContext, Intent intent, ServiceConnection sc, String processName) {
+        // start plugin, 指定ServiceConnection和进程
+        PluginManager.launchPlugin(mHostContext, intent, sc, processName);
     }
 
     /**

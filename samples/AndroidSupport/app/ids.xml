@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<item type="id" name="center" />
+	<item type="id" name="center_horizontal" />
+	<item type="id" name="center_vertical" />
+	<item type="id" name="clip_horizontal" />
+	<item type="id" name="clip_vertical" />
+	<item type="id" name="fill" />
+	<item type="id" name="fill_horizontal" />
+	<item type="id" name="fill_vertical" />
+	<item type="id" name="left" />
+	<item type="id" name="right" />
+	<item type="id" name="start" />
+	<item type="id" name="all" />
+	<item type="id" name="centerCrop" />
+	<item type="id" name="centerInside" />
+	<item type="id" name="fitBottomStart" />
+	<item type="id" name="fitCenter" />
+	<item type="id" name="fitEnd" />
+	<item type="id" name="fitStart" />
+	<item type="id" name="fitXY" />
+	<item type="id" name="focusCrop" />
+</resources>

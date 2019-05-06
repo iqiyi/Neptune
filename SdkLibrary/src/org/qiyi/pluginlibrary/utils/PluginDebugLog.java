@@ -17,11 +17,11 @@
  */
 package org.qiyi.pluginlibrary.utils;
 
-import android.os.Process;
 import android.text.TextUtils;
 import android.util.Log;
 
-import java.text.SimpleDateFormat;
+import org.qiyi.pluginlibrary.Neptune;
+
 import java.util.Locale;
 
 /**
@@ -37,15 +37,13 @@ public class PluginDebugLog {
     public static final String TAG = "plugin";
 
     /* 插件SDK下载Log TAG */
-    private static final String DOWNLOAD_TAG = "download_plugin";
+    public static final String DOWNLOAD_TAG = "download_plugin";
     /* 插件SDK安装Log TAG */
-    private static final String INSTALL_TAG = "install_plugin";
+    public static final String INSTALL_TAG = "install_plugin";
     /* 插件SDK运行时Log TAG */
-    private static final String RUNTIME_TAG = "runtime_plugin";
-
-    private static final String GENERAL_TAG = "general_plugin";
-    private static final int SINGLE_LOG_SIZE_LIMIT = 512;
-    private static SimpleDateFormat formatter = new SimpleDateFormat("MM-dd HH:mm:ss:SSS", Locale.getDefault());
+    public static final String RUNTIME_TAG = "runtime_plugin";
+    /* 插件SDK通用Log TAG */
+    public static final String GENERAL_TAG = "general_plugin";
     private static boolean sIsDebug = false;
 
     public static void setIsDebug(boolean b) {
@@ -58,43 +56,6 @@ public class PluginDebugLog {
      */
     public static boolean isDebug() {
         return sIsDebug || android.util.Log.isLoggable(TAG, android.util.Log.VERBOSE);
-    }
-
-    private static void logInternal(String tag, Object msg) {
-        logInternal(tag, msg, Log.INFO);
-    }
-
-    private static void logInternal(String tag, Object msg, int logLevel) {
-        if (!TextUtils.isEmpty(tag) && null != msg) {
-
-            String content = String.valueOf(msg);
-            switch (logLevel) {
-                case Log.ERROR:
-                    Log.e(tag, content);
-                    break;
-                case Log.WARN:
-                    Log.w(tag, content);
-                    break;
-                case Log.INFO:
-                    Log.i(tag, content);
-                    break;
-                case Log.DEBUG:
-                    Log.d(tag, content);
-                    break;
-                default:
-                    Log.v(tag, content);
-                    break;
-            }
-        }
-    }
-
-    public static void log(String tag, String identify, Object msg) {
-        if (isDebug()) {
-            if (!TextUtils.isEmpty(tag) && null != msg) {
-                String log = "[INFO " + identify + "] " + String.valueOf(msg);
-                Log.i(tag, log);
-            }
-        }
     }
 
     /**
@@ -133,15 +94,12 @@ public class PluginDebugLog {
      * 插件SDK安装log,格式化输出log，主要避免大量使用+连接String的情况
      */
     public static void installFormatLog(String tag, String format, Object... args) {
-        if (isDebug()) {
-            try {
-                String msg = (args == null) ? format : String.format(Locale.US, format, args);
-                installLog(tag, msg);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+        try {
+            String msg = (args == null) ? format : String.format(Locale.US, format, args);
+            installLog(tag, msg);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-
     }
 
     /**
@@ -161,29 +119,6 @@ public class PluginDebugLog {
             try {
                 String msg = (args == null) ? format : String.format(Locale.US, format, args);
                 runtimeLog(tag, msg);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    /**
-     * 插件SDKwarning级别log
-     */
-    public static void warningLog(String tag, Object msg) {
-        if (isDebug()) {
-            logInternal(RUNTIME_TAG, "[ " + tag + " ] : " + msg);
-        }
-    }
-
-    /**
-     * 插件SDKwarning级别日志
-     */
-    public static void warningFormatLog(String tag, String format, Object... args) {
-        if (isDebug()) {
-            try {
-                String msg = (args == null) ? format : String.format(Locale.US, format, args);
-                warningLog(tag, msg);
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -213,26 +148,30 @@ public class PluginDebugLog {
         }
     }
 
-    public static String buildPersistLog(String tag, String msg) {
-        long time = System.currentTimeMillis();
-        int pid = Process.myPid();
-        int tid = Process.myTid();
+    private static void logInternal(String tag, Object msg) {
+        logInternal(tag, msg, Log.INFO);
+    }
 
-        StringBuilder sb = new StringBuilder();
-        String logTime = formatter.format(time);
-        sb.append(logTime);
-        sb.append(" ");
-        sb.append(pid);
-        sb.append(" ");
-        sb.append(tid);
-        sb.append(" ");
-        sb.append(tag);
-        sb.append(" ");
-        sb.append(msg);
-        if (sb.length() > SINGLE_LOG_SIZE_LIMIT) {
-            return sb.toString().substring(0, SINGLE_LOG_SIZE_LIMIT);
+    private static void logInternal(String tag, Object msg, int logLevel) {
+        if (!TextUtils.isEmpty(tag) && null != msg) {
+            String content = String.valueOf(msg);
+            switch (logLevel) {
+                case Log.ERROR:
+                    Log.e(tag, content);
+                    break;
+                case Log.WARN:
+                    Log.w(tag, content);
+                    break;
+                case Log.INFO:
+                    Log.i(tag, content);
+                    break;
+                case Log.DEBUG:
+                    Log.d(tag, content);
+                    break;
+                default:
+                    Log.v(tag, content);
+                    break;
+            }
         }
-        sb.append("\n");
-        return sb.toString();
     }
 }

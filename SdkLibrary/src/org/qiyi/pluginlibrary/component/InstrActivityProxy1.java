@@ -42,6 +42,7 @@ import android.graphics.Canvas;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.support.annotation.RequiresApi;
 import android.support.v4.util.ArrayMap;
 import android.text.TextUtils;
 import android.util.AttributeSet;
@@ -118,7 +119,7 @@ public class InstrActivityProxy1 extends Activity implements InterfaceToGetHost 
         @Override
         public void run() {
             PluginDebugLog.runtimeLog(TAG, "mock ServiceConnected event.");
-            NotifyCenter.notifyServiceConnected(InstrActivityProxy1.this, null);
+            NotifyCenter.notifyServiceConnected(InstrActivityProxy1.this, "");
         }
     };
     private boolean mNeedUpdateConfiguration = true;
@@ -172,7 +173,7 @@ public class InstrActivityProxy1 extends Activity implements InterfaceToGetHost 
 
         mPluginControl = new PluginActivityControl(InstrActivityProxy1.this, mPluginActivity,
                 mLoadedApk.getPluginApplication(), mLoadedApk.getPluginInstrument());
-        mPluginContextWrapper = new PluginContextWrapper(InstrActivityProxy1.this.getBaseContext(), pluginPkgName);
+        mPluginContextWrapper = new PluginContextWrapper(InstrActivityProxy1.this.getBaseContext(), mLoadedApk);
         // 需要先修改InstrActivity的ActivityInfo，这样后面attach的信息才是正确的
         ActivityInfo actInfo = mLoadedApk.getActivityInfoByClassName(pluginActivityName);
         if (actInfo != null) {
@@ -329,8 +330,8 @@ public class InstrActivityProxy1 extends Activity implements InterfaceToGetHost 
             mLaunchPluginReceiver = new BroadcastReceiver() {
                 @Override
                 public void onReceive(Context context, Intent intent) {
-                    Class<?> service = (Class<?>) intent.getSerializableExtra(IntentConstant.EXTRA_SERVICE_CLASS);
-                    PluginDebugLog.formatLog(TAG, "LaunchPluginReceiver#onReceive %s %s", pkgName, service);
+                    String serviceCls = intent.getStringExtra(IntentConstant.EXTRA_SERVICE_CLASS);
+                    PluginDebugLog.formatLog(TAG, "LaunchPluginReceiver#onReceive %s %s", pkgName, serviceCls);
                     boolean ppmsReady = PluginPackageManagerNative.getInstance(context).isConnected();
                     boolean readyLaunch = mRecoveryCallback.beforeLaunch(context, pkgName, activityName);
                     if (ppmsReady && readyLaunch) {
@@ -649,13 +650,43 @@ public class InstrActivityProxy1 extends Activity implements InterfaceToGetHost 
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
+        PluginDebugLog.runtimeLog(TAG, "InstrActivityProxy1 onKeyDown....keyCode=" + keyCode);
         if (getController() != null) {
-            return getController().callOnKeyDown(keyCode, event);
+            try {
+                return getController().callOnKeyDown(keyCode, event);
+            } catch (Exception e) {
+                ErrorUtil.throwErrorIfNeed(e);
+            }
         }
 
         return super.onKeyDown(keyCode, event);
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
+    @Override
+    public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode, Configuration newConfig) {
+        PluginDebugLog.runtimeLog(TAG, "InstrActivityProxy1 onPictureInPictureModeChanged....");
+        if (getController() != null) {
+            try {
+                getController().callOnPictureInPictureModeChanged(isInPictureInPictureMode, newConfig);
+            } catch (Exception e) {
+                ErrorUtil.throwErrorIfNeed(e);
+            }
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.N)
+    @Override
+    public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode) {
+        PluginDebugLog.runtimeLog(TAG, "InstrActivityProxy1 onPictureInPictureModeChanged....");
+        if (getController() != null) {
+            try {
+                getController().callOnPictureInPictureModeChanged(isInPictureInPictureMode);
+            } catch (Exception e) {
+                ErrorUtil.throwErrorIfNeed(e);
+            }
+        }
+    }
 
     @Override
     public void startActivityForResult(Intent intent, int requestCode) {
