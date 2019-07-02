@@ -68,6 +68,8 @@ public class ErrorType {
     public static final int INSTALL_ERROR_DEX_NOT_EXIST = 4200;
     /* 安装错误，安装dex文件拷贝失败 */
     public static final int INSTALL_ERROR_DEX_COPY_FAILED = 4201;
+    /* 安装错误，安装dex文件时解压失败 */
+    public static final int INSTALL_ERROR_DEX_UNZIP_FAILED = 4202;
     /* 安装错误，远程Service超时 */
     public static final int INSTALL_ERROR_CLIENT_TIME_OUT = 4300;
     /* 安装错误，启动PluginInstallerService异常 */

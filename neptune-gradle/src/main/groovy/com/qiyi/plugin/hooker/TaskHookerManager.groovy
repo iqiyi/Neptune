@@ -151,8 +151,8 @@ class TaskHookerManager {
      * hook dex生成的task，重写java class文件
      */
     private void hookDexTask(Task dexTask) {
-        if (!pluginExt.dexModify || dexTask == null) {
-            println "dexTask is null or dexModify is disabled, ${pluginExt.dexModify}"
+        if (!pluginExt.useBaseActivity || dexTask == null) {
+            println "dexTask is null or disable use BaseActivity, ${pluginExt.useBaseActivity}"
             return
         }
 
@@ -435,7 +435,6 @@ class TaskHookerManager {
 
         def splitRSourceFile = new File(sourceOutputDir.parentFile, "plugin${File.separator}${packagePath}${File.separator}R.java")
         aapt.generateRJava(splitRSourceFile, originalApplicationId, resourceCollector.pluginResources, resourceCollector.pluginStyleables)
-        pluginExt.splitRJavaFile = splitRSourceFile
 
         // update aar library module R.java file
         resourceCollector.retainedAarLibs.each {

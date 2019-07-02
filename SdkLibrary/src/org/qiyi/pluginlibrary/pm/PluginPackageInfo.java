@@ -209,7 +209,8 @@ public class PluginPackageInfo implements Parcelable {
 
         } catch (RuntimeException e) {
             ErrorUtil.throwErrorIfNeed(e);
-            PluginManager.deliver(context, false, packageName, ErrorType.ERROR_PLUGIN_PARSER_PACKAGE_INFO);
+            String errMsg = "create PluginPackageInfo failed: " + e.getMessage();
+            PluginManager.deliver(context, false, packageName, ErrorType.ERROR_PLUGIN_PARSER_PACKAGE_INFO, errMsg);
         } catch (Throwable e) {
             // java.lang.VerifyError: android/content/pm/PackageParser
             // java.lang.NoSuchMethodError: android.content.pm.PackageParser
@@ -217,7 +218,8 @@ public class PluginPackageInfo implements Parcelable {
             // com.android.internal.R$styleable.AndroidManifest
             // java.lang.NoSuchMethodError: android.graphics.PixelXorXfermode
             ErrorUtil.throwErrorIfNeed(e);
-            PluginManager.deliver(context, false, packageName, ErrorType.ERROR_PLUGIN_PARSER_PACKAGE_INFO);
+            String errMsg = "create PluginPackageInfo failed: " + e.getMessage();
+            PluginManager.deliver(context, false, packageName, ErrorType.ERROR_PLUGIN_PARSER_PACKAGE_INFO, errMsg);
         }
     }
 

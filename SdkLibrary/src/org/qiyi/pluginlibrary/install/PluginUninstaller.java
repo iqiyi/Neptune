@@ -22,6 +22,7 @@ import android.text.TextUtils;
 
 import org.qiyi.pluginlibrary.pm.PluginLiteInfo;
 import org.qiyi.pluginlibrary.pm.PluginPackageManager;
+import org.qiyi.pluginlibrary.utils.CpuAbiUtils;
 import org.qiyi.pluginlibrary.utils.FileUtils;
 import org.qiyi.pluginlibrary.utils.PluginDebugLog;
 import org.qiyi.pluginlibrary.utils.VersionUtils;
@@ -167,7 +168,7 @@ public class PluginUninstaller extends PluginInstaller {
                 PluginDebugLog.installFormatLog(TAG, "deleteInstallerPackage prof  %s fail!", packageName);
             }
             //删除odex和vdex文件
-            String currentInstructionSet = FileUtils.getCurrentInstructionSet();
+            String currentInstructionSet = CpuAbiUtils.getCurrentInstructionSet();
             File oatDir = new File(apkFile.getParent() + "/oat/"
                     + currentInstructionSet);
             if (!oatDir.exists()) {

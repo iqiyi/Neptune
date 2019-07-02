@@ -52,19 +52,16 @@
         <activity
             android:name="org.qiyi.pluginlibrary.component.InstrActivityProxyTranslucent0"
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout"
-            android:screenOrientation="portrait"
             android:theme="@android:style/Theme.Translucent" />
         <activity
             android:name="org.qiyi.pluginlibrary.component.InstrActivityProxyTranslucent1"
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout"
             android:process=":plugin1"
-            android:screenOrientation="portrait"
             android:theme="@android:style/Theme.Translucent" />
         <activity
             android:name="org.qiyi.pluginlibrary.component.InstrActivityProxyTranslucent2"
             android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize"
             android:process=":plugin2"
-            android:screenOrientation="portrait"
             android:theme="@android:style/Theme.Translucent" />
 
         <!-- standard 横屏Activity坑位 -->
@@ -158,6 +155,12 @@
             android:exported="false"
             android:grantUriPermissions="true"
             android:process=":plugin1"/>
+
+        <provider
+            android:name="org.qiyi.pluginlibrary.pm.PluginPackageManagerProvider"
+            android:authorities="${applicationId}.neptune.manager.provider"
+            android:exported="false"
+            android:multiprocess="false"/>
     </application>
 
 </manifest>

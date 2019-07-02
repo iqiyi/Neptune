@@ -17,8 +17,6 @@
  */
 package org.qiyi.pluginlibrary.component.wraper;
 
-import android.annotation.SuppressLint;
-import android.annotation.TargetApi;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
 import android.content.res.ColorStateList;
@@ -29,6 +27,7 @@ import android.content.res.XmlResourceParser;
 import android.graphics.Movie;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
+import android.support.annotation.RequiresApi;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
@@ -52,7 +51,8 @@ public class ResourcesProxy extends Resources {
      * @param config  资源配置
      * @param hostRes 宿主的资源
      */
-    public ResourcesProxy(AssetManager assets, DisplayMetrics metrics, Configuration config, Resources hostRes, String pluginPackageName) {
+    public ResourcesProxy(AssetManager assets, DisplayMetrics metrics, Configuration config,
+                          Resources hostRes, String pluginPackageName) {
         super(assets, metrics, config);
         mHostResources = hostRes;
         mPluginPackageName = pluginPackageName;
@@ -114,18 +114,16 @@ public class ResourcesProxy extends Resources {
 
     @Override
     public CharSequence getText(int id, CharSequence def) {
-        CharSequence relt = null;
+        CharSequence ret = null;
         try {
-            relt = super.getText(id);
+            ret = super.getText(id);
         } catch (NotFoundException e) {
-
+            // ingore
         }
-
-        if (relt != null) {
-            return relt;
-        } else {
-            return mHostResources.getText(id, def);
+        if (ret == null) {
+            ret = mHostResources.getText(id, def);
         }
+        return ret;
     }
 
     @Override
@@ -209,12 +207,7 @@ public class ResourcesProxy extends Resources {
         }
     }
 
-    /**
-     * @param id    资源ID
-     * @param theme Theme
-     * @throws NotFoundException
-     */
-    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
+    @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
     @Override
     public Drawable getDrawable(int id, Theme theme) throws NotFoundException {
         try {
@@ -222,10 +215,9 @@ public class ResourcesProxy extends Resources {
         } catch (NotFoundException e) {
             return mHostResources.getDrawable(id, theme);
         }
-
     }
 
-    @SuppressLint("NewApi")
+    @RequiresApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1)
     @Override
     public Drawable getDrawableForDensity(int id, int density) throws NotFoundException {
         try {
@@ -235,13 +227,7 @@ public class ResourcesProxy extends Resources {
         }
     }
 
-    /**
-     * @param id      资源ID
-     * @param density 分辨率
-     * @param theme   Theme
-     * @throws NotFoundException
-     */
-    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
+    @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
     @Override
     public Drawable getDrawableForDensity(int id, int density, Theme theme) throws NotFoundException {
         try {
@@ -269,12 +255,7 @@ public class ResourcesProxy extends Resources {
         }
     }
 
-    /**
-     * @param id    资源ID
-     * @param theme Theme
-     * @throws NotFoundException
-     */
-    @TargetApi(Build.VERSION_CODES.M)
+    @RequiresApi(Build.VERSION_CODES.M)
     @Override
     public int getColor(int id, Theme theme) throws NotFoundException {
         try {
@@ -293,12 +274,7 @@ public class ResourcesProxy extends Resources {
         }
     }
 
-    /**
-     * @param id    资源ID
-     * @param theme Theme
-     * @throws NotFoundException
-     */
-    @TargetApi(Build.VERSION_CODES.M)
+    @RequiresApi(Build.VERSION_CODES.M)
     @Override
     public ColorStateList getColorStateList(int id, Theme theme) throws NotFoundException {
         try {
@@ -387,10 +363,9 @@ public class ResourcesProxy extends Resources {
         } catch (NotFoundException e) {
             mHostResources.getValue(id, outValue, resolveRefs);
         }
-
     }
 
-    @SuppressLint("NewApi")
+    @RequiresApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1)
     @Override
     public void getValueForDensity(int id, int density, TypedValue outValue, boolean resolveRefs) throws NotFoundException {
         try {
@@ -417,7 +392,6 @@ public class ResourcesProxy extends Resources {
         } catch (NotFoundException e) {
             return mHostResources.obtainAttributes(set, attrs);
         }
-
     }
 
     @Override
@@ -427,7 +401,6 @@ public class ResourcesProxy extends Resources {
         } catch (NotFoundException e) {
             return mHostResources.getResourceName(resid);
         }
-
     }
 
     @Override

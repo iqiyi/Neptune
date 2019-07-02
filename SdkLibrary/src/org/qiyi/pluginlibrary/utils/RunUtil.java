@@ -43,7 +43,8 @@ public class RunUtil {
             countDownLatch = new CountDownLatch(1);
         }
         Pair<Runnable, CountDownLatch> pair = new Pair<>(runnable, countDownLatch);
-        getHandler().obtainMessage(MSG_RUN_ON_UITHREAD, pair).sendToTarget();
+        Message msg = getHandler().obtainMessage(MSG_RUN_ON_UITHREAD, pair);
+        getHandler().sendMessageAtFrontOfQueue(msg);
         if (waitUtilDown) {
             try {
                 countDownLatch.await();

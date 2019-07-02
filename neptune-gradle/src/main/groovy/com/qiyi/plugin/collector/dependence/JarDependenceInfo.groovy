@@ -4,8 +4,6 @@ import com.android.builder.dependency.level2.JavaDependency
 
 /**
  * Represents a Jar dependency. This could be the output of a Java project.
- *
- * @author zhengtao
  */
 class JarDependenceInfo extends DependenceInfo {
 

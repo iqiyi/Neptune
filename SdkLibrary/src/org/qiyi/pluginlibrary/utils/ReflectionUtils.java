@@ -603,9 +603,25 @@ public class ReflectionUtils {
     // ---------------------------------------------------------------------
 
     /**
+     * 根据方法名和方法参数列表查找最接近的方法
+     */
+    public Method exactMethod(String name, Object... args) throws NoSuchMethodException {
+        Class<?>[] types = types(args);
+        Method method = null;
+        try {
+            // 使用精确匹配查找
+            method = exactMethod(name, types);
+        } catch (NoSuchMethodException e) {
+            // 使用模糊匹配查找
+            method = similarMethod(name, types);
+        }
+        return method;
+    }
+
+    /**
      * 根据方法名和方法参数得到该方法。
      */
-    private Method exactMethod(String name, Class<?>[] types) throws NoSuchMethodException {
+    public Method exactMethod(String name, Class<?>[] types) throws NoSuchMethodException {
         Class<?> type = type();
 
         // 先尝试直接调用

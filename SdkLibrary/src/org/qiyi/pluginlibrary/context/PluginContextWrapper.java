@@ -23,6 +23,8 @@ import android.content.res.Resources.Theme;
 import android.view.LayoutInflater;
 
 import org.qiyi.pluginlibrary.runtime.PluginLoadedApk;
+import org.qiyi.pluginlibrary.utils.LayoutInflaterCompat;
+
 
 /**
  * 自定义ContextWrapper的实现类
@@ -64,14 +66,15 @@ public class PluginContextWrapper extends CustomContextWrapper {
     @Override
     public Object getSystemService(String name) {
 
-        if (forApp && LAYOUT_INFLATER_SERVICE.equals(name)) {
-            // 重写插件Application Context的获取LayoutInflater方法，解决插件使用Application Context
-            // 无法访问插件资源的问题，原因是LayoutInflater的构造函数使用的是Base Context的outerContext，
-            // 而这个OuterContext是宿主的Application
+        if (LAYOUT_INFLATER_SERVICE.equals(name)) {
             if (mLayoutInflater == null) {
+                // 重写插件Application Context的获取LayoutInflater方法，解决插件使用Application Context
+                // 无法访问插件资源的问题，原因是LayoutInflater的构造函数使用的是Base Context的outerContext，
+                // 而这个OuterContext是宿主的Application
                 LayoutInflater inflater = (LayoutInflater) super.getSystemService(name);
-                // 使用当前的Context新建一个
-                mLayoutInflater = inflater.cloneInContext(this);
+                mLayoutInflater = forApp ? inflater.cloneInContext(this) : inflater;
+                // 设置mPrivateFactory，修复多个插件同时依赖使用同名View的问题，比如android design库
+                LayoutInflaterCompat.setPrivateFactory(inflater);
             }
             return mLayoutInflater;
         }

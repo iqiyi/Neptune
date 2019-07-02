@@ -48,7 +48,6 @@ import org.qiyi.pluginlibrary.component.stackmgr.PServiceSupervisor;
 import org.qiyi.pluginlibrary.component.stackmgr.PluginServiceWrapper;
 import org.qiyi.pluginlibrary.component.wraper.PluginInstrument;
 import org.qiyi.pluginlibrary.component.wraper.ResourcesProxy;
-import org.qiyi.pluginlibrary.provider.PluginContentResolver;
 import org.qiyi.pluginlibrary.context.PluginContextWrapper;
 import org.qiyi.pluginlibrary.error.ErrorType;
 import org.qiyi.pluginlibrary.install.PluginInstaller;
@@ -57,12 +56,14 @@ import org.qiyi.pluginlibrary.pm.PluginLiteInfo;
 import org.qiyi.pluginlibrary.pm.PluginPackageInfo;
 import org.qiyi.pluginlibrary.pm.PluginPackageManager;
 import org.qiyi.pluginlibrary.pm.PluginPackageManagerNative;
+import org.qiyi.pluginlibrary.provider.PluginContentResolver;
 import org.qiyi.pluginlibrary.utils.ClassLoaderInjectHelper;
 import org.qiyi.pluginlibrary.utils.ErrorUtil;
 import org.qiyi.pluginlibrary.utils.FileUtils;
 import org.qiyi.pluginlibrary.utils.PluginDebugLog;
 import org.qiyi.pluginlibrary.utils.ReflectionUtils;
 import org.qiyi.pluginlibrary.utils.ResourcesToolForPlugin;
+import org.qiyi.pluginlibrary.utils.RunUtil;
 
 import java.io.File;
 import java.lang.reflect.Field;
@@ -162,7 +163,7 @@ public class PluginLoadedApk {
     public PluginLoadedApk(Context mHostContext,
                            String mPluginPath,
                            String mPluginPackageName,
-                           String mProcessName) {
+                           String mProcessName) throws Exception {
         if (mHostContext == null
                 || TextUtils.isEmpty(mPluginPath)
                 || TextUtils.isEmpty(mPluginPackageName)) {
@@ -183,13 +184,15 @@ public class PluginLoadedApk {
         // 创建插件ClassLoader
         if (Neptune.SEPARATED_CLASSLOADER) {
             if (!createNewClassLoader()) {
-                PluginManager.deliver(mHostContext, false, mPluginPackageName, ErrorType.ERROR_PLUGIN_CREATE_CLASSLOADER);
-                throw new RuntimeException("ProxyEnvironmentNew init failed for createNewClassLoader failed:" + " apkFile: " + mPluginPath + " pluginPakName: " + mPluginPackageName);
+                String errMsg = "PluginLoadedApk init failed for createNewClassLoader failed:" + " apkFile: " + mPluginPath + " pluginPakName: " + mPluginPackageName;
+                PluginManager.deliver(mHostContext, false, mPluginPackageName, ErrorType.ERROR_PLUGIN_CREATE_CLASSLOADER, errMsg);
+                throw new RuntimeException(errMsg);
             }
         } else {
             if (!createClassLoader()) {
-                PluginManager.deliver(mHostContext, false, mPluginPackageName, ErrorType.ERROR_PLUGIN_CREATE_CLASSLOADER);
-                throw new RuntimeException("ProxyEnvironmentNew init failed for createClassLoader failed:" + " apkFile: " + mPluginPath + " pluginPakName: " + mPluginPackageName);
+                String errMsg = "PluginLoadedApk init failed for createClassLoader failed:" + " apkFile: " + mPluginPath + " pluginPakName: " + mPluginPackageName;
+                PluginManager.deliver(mHostContext, false, mPluginPackageName, ErrorType.ERROR_PLUGIN_CREATE_CLASSLOADER, errMsg);
+                throw new RuntimeException(errMsg);
             }
         }
         PluginDebugLog.runtimeFormatLog(TAG, "plugin %s, class loader: %s", mPluginPackageName, mPluginClassLoader.toString());
@@ -269,7 +272,8 @@ public class PluginLoadedApk {
             mPluginAssetManager = am;
         } catch (Exception e) {
             ErrorUtil.throwErrorIfNeed(e);
-            PluginManager.deliver(mHostContext, false, mPluginPackageName, ErrorType.ERROR_PLUGIN_INIT_RESOURCES);
+            String errMsg = "create plugin resources failed: " + e.getMessage();
+            PluginManager.deliver(mHostContext, false, mPluginPackageName, ErrorType.ERROR_PLUGIN_INIT_RESOURCES, errMsg);
         }
 
         Configuration config = new Configuration();
@@ -484,72 +488,117 @@ public class PluginLoadedApk {
     }
 
     /**
+     * 某些case下PluginLoadedApk初始化成功了，但是Application还没有初始化完成
+     */
+    public void invokeApplicationIfNeed() {
+        if (hasPluginInit()) {
+            // just ignore
+            return;
+        }
+        try {
+            PluginDebugLog.runtimeLog(TAG, "invokeApplicationIfNeed() called from NeptuneInstrumentation");
+            invokeApplication();
+        } catch (Exception e) {
+            ErrorUtil.throwErrorIfNeed(e);
+        }
+    }
+
+    /**
+     * 初始化插件的Application
+     *
+     * @throws Exception
+     */
+    void invokeApplication() throws Exception {
+        final Exception[] temp = new Exception[1];
+        RunUtil.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    if (makeApplication()) {
+                        PluginDebugLog.runtimeFormatLog(TAG, "plugin %s makeApplication success", mPluginPackageName);
+                    } else {
+                        temp[0] = new RuntimeException("init Application failed");
+                    }
+                } catch (Exception ex) {
+                    temp[0] = new RuntimeException("init Application failed", ex);
+                }
+            }
+        }, true);
+        if (temp[0] != null) {
+            throw temp[0];
+        }
+    }
+
+    /**
      * 创建插件的Application对象
      *
      * @return true：创建Application成功，false:创建失败
      */
-    synchronized boolean makeApplication() {
-        if (!isPluginInit || mPluginApplication == null) {
-            String className = mPluginPackageInfo.getApplicationClassName();
-            if (TextUtils.isEmpty(className)) {
-                className = "android.app.Application";
-            }
-
-            Instrumentation hostInstr = Neptune.getHostInstrumentation();
-            mPluginInstrument = new PluginInstrument(hostInstr, mPluginPackageName);
-            try {
-                // load plugin Application and call Application#attach()
-                this.mPluginApplication = hostInstr.newApplication(mPluginClassLoader, className, mPluginAppContext);
-            } catch (Exception e) {
-                ErrorUtil.throwErrorIfNeed(e);
-                PluginManager.deliver(mHostContext, false, mPluginPackageName, ErrorType.ERROR_PLUGIN_LOAD_APPLICATION);
-                return false;
-            }
-            // 注册Application回调
-            try {
-                mHostContext.registerComponentCallbacks(new ComponentCallbacks2() {
-                    @Override
-                    public void onTrimMemory(int level) {
-                        mPluginApplication.onTrimMemory(level);
-                    }
-
-                    @Override
-                    public void onConfigurationChanged(Configuration configuration) {
-                        updateConfiguration(configuration);
-                    }
-
-                    @Override
-                    public void onLowMemory() {
-                        mPluginApplication.onLowMemory();
-                    }
-                });
-            } catch (NoSuchMethodError e) {
-                // java.lang.NoSuchMethodError: android.content.Context.registerComponentCallbacks
-                // Vivo X3t, 4.2
-                ErrorUtil.throwErrorIfNeed(e);
-                PluginDebugLog.runtimeLog(TAG, "register ComponentCallbacks for plugin failed, pkgName=" + mPluginPackageName);
-            }
-            // 安装插件Provider
-            installContentProviders();
-            // 执行Application#onCreate()方法
-            try {
-                mPluginApplication.onCreate();
-            } catch (Throwable t) {
-                ErrorUtil.throwErrorIfNeed(t);
-                PluginManager.deliver(mHostContext, false, mPluginPackageName, ErrorType.ERROR_PLUGIN_CREATE_APPLICATION);
-                PluginDebugLog.runtimeLog(TAG, "call plugin Application#onCreate() failed, pkgName=" + mPluginPackageName);
-                return false;
-            }
-            // 支持注册多个ActivityLifeCycle到插件进程
-            for (Application.ActivityLifecycleCallbacks callback : PluginManager.sActivityLifecycleCallbacks) {
-                mPluginApplication.registerActivityLifecycleCallbacks(callback);
-            }
-
-            isPluginInit = true;
-            isLaunchingIntent = false;
-
-            PluginManager.deliver(mHostContext, true, mPluginPackageName, ErrorType.SUCCESS);
+    private synchronized boolean makeApplication() {
+        if (hasPluginInit()) {
+            return true;
         }
+
+        String className = mPluginPackageInfo.getApplicationClassName();
+        if (TextUtils.isEmpty(className)) {
+            className = "android.app.Application";
+        }
+
+        Instrumentation hostInstr = Neptune.getHostInstrumentation();
+        mPluginInstrument = new PluginInstrument(hostInstr, mPluginPackageName);
+        try {
+            // load plugin Application and call Application#attach()
+            this.mPluginApplication = hostInstr.newApplication(mPluginClassLoader, className, mPluginAppContext);
+        } catch (Exception e) {
+            String errMsg = "plugin newApplication failed: " + e.getMessage();
+            PluginManager.deliver(mHostContext, false, mPluginPackageName, ErrorType.ERROR_PLUGIN_LOAD_APPLICATION, errMsg);
+            ErrorUtil.throwErrorIfNeed(e, true);
+            return false;
+        }
+        // 注册Application回调
+        try {
+            mHostContext.registerComponentCallbacks(new ComponentCallbacks2() {
+                @Override
+                public void onTrimMemory(int level) {
+                    mPluginApplication.onTrimMemory(level);
+                }
+
+                @Override
+                public void onConfigurationChanged(Configuration configuration) {
+                    updateConfiguration(configuration);
+                }
+
+                @Override
+                public void onLowMemory() {
+                    mPluginApplication.onLowMemory();
+                }
+            });
+        } catch (NoSuchMethodError e) {
+            // java.lang.NoSuchMethodError: android.content.Context.registerComponentCallbacks
+            // Vivo X3t, 4.2
+            ErrorUtil.throwErrorIfNeed(e);
+            PluginDebugLog.runtimeLog(TAG, "register ComponentCallbacks for plugin failed, pkgName=" + mPluginPackageName);
+        }
+        // 安装插件Provider
+        installContentProviders();
+        // 执行Application#onCreate()方法
+        try {
+            mPluginApplication.onCreate();
+        } catch (Throwable tr) {
+            String errMsg = "call plugin Application " + className + "#onCreate() failed: " + tr.getMessage();
+            PluginManager.deliver(mHostContext, false, mPluginPackageName, ErrorType.ERROR_PLUGIN_CREATE_APPLICATION, errMsg);
+            PluginDebugLog.runtimeLog(TAG, "call plugin Application#onCreate() failed, pkgName=" + mPluginPackageName);
+            ErrorUtil.throwErrorIfNeed(tr, true);
+            return false;
+        }
+        // 支持注册多个ActivityLifeCycle到插件进程
+        for (Application.ActivityLifecycleCallbacks callback : PluginManager.sActivityLifecycleCallbacks) {
+            mPluginApplication.registerActivityLifecycleCallbacks(callback);
+        }
+
+        isPluginInit = true;
+        isLaunchingIntent = false;
+        PluginManager.deliver(mHostContext, true, mPluginPackageName, ErrorType.SUCCESS, "");
         return true;
     }
 
@@ -586,7 +635,7 @@ public class PluginLoadedApk {
                             mProviderMaps.put(mProviderInfo.mInfo.authority, provider);
                         }
                     } catch (Exception e) {
-                        e.printStackTrace();
+                        ErrorUtil.throwErrorIfNeed(e);
                     }
                 }
             }
@@ -619,7 +668,7 @@ public class PluginLoadedApk {
         } catch (Exception e) {
             ErrorUtil.throwErrorIfNeed(e);
             PluginManager.deliver(mHostContext, false, mPluginPackageName,
-                    ErrorType.ERROR_PLUGIN_HOOK_INSTRUMENTATION);
+                    ErrorType.ERROR_PLUGIN_HOOK_INSTRUMENTATION, "hookInstrumentation failed");
         }
     }
 
@@ -642,7 +691,7 @@ public class PluginLoadedApk {
             attachMethod.invoke(mPluginApplication, mPluginAppContext);
         } catch (Exception e) {
             PluginManager.deliver(mHostContext, false, mPluginPackageName,
-                    ErrorType.ERROR_PLUGIN_APPLICATION_ATTACH_BASE);
+                    ErrorType.ERROR_PLUGIN_APPLICATION_ATTACH_BASE, "call Application#attach() failed");
             ErrorUtil.throwErrorIfNeed(e);
         }
     }
@@ -665,13 +714,6 @@ public class PluginLoadedApk {
         }
     }
 
-    /**
-     * 拷贝Native so库到插件libs目录
-     */
-    private void tryToCopyNativeLib() {
-        FileUtils.installNativeLibrary(mHostContext, mPluginPath,
-                mPluginPackageInfo.getPackageInfo(), mPluginPackageInfo.getNativeLibraryDir());
-    }
 
     /**
      * 更新资源配置
@@ -854,7 +896,7 @@ public class PluginLoadedApk {
     /**
      * 通过authority获取ProviderInfo
      *
-     * @param authority  需要获取ProviderInfo的authority名称
+     * @param authority 需要获取ProviderInfo的authority名称
      * @return 返回对应的ProviderInfo，如果没有找到则返回null
      */
     public ProviderInfo getProviderInfoByAuthority(String authority) {
@@ -914,13 +956,13 @@ public class PluginLoadedApk {
      * @return true :初始化，false:没有初始化
      */
     boolean hasPluginInit() {
-        return isPluginInit;
+        return isPluginInit && mPluginApplication != null;
     }
 
     /**
      * 是否有正在启动的Intent
      */
-    public boolean hasLaunchIngIntent() {
+    boolean hasLaunchIngIntent() {
         return isLaunchingIntent;
     }
 
@@ -931,6 +973,10 @@ public class PluginLoadedApk {
      * 否则返回Application实例
      */
     public Application getPluginApplication() {
+        if (mPluginApplication == null) {
+            RuntimeException re = new RuntimeException("getPluginApplication but PluginLoadedApk(@" + mPluginPackageName + ") has not init");
+            ErrorUtil.throwErrorIfNeed(re);
+        }
         return mPluginApplication;
     }
 

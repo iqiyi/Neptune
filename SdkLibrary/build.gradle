@@ -11,8 +11,10 @@ apply plugin: 'com.android.library'
 
 dependencies {
     compileOnly files('libs/android-27.jar')
-    // TODO upgrade to version 27.1.1
-    compileOnly files('libs/android_support_27.1.1.jar')
+    //compileOnly files('libs/android_support_27.1.1.jar')
+    implementation "com.android.support:support-core-ui:${ANDROID_SUPPORT_VERSION}"
+    compileOnly "com.android.support:support-fragment:${ANDROID_SUPPORT_VERSION}"
+    compileOnly "com.android.support:appcompat-v7:${ANDROID_SUPPORT_VERSION}"
 }
 
 
@@ -37,6 +39,7 @@ android {
     defaultConfig {
         minSdkVersion 14
         targetSdkVersion TARGET_SDK_VERSION
+        consumerProguardFiles "proguard.pro"
     }
     dexOptions {
         javaMaxHeapSize "2g"

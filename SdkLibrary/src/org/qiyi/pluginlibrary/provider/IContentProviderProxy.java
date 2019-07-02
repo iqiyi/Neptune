@@ -33,10 +33,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 
-/**
- * author: liuchun
- * date: 2019/1/28
- */
 public class IContentProviderProxy implements InvocationHandler {
 
     private IContentProvider mBase;

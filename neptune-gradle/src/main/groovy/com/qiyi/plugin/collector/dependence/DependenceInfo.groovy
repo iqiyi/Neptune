@@ -2,8 +2,6 @@ package com.qiyi.plugin.collector.dependence
 
 /**
  * Represents a dependency in Android Project
- *
- * @author zhengtao
  */
 public abstract class DependenceInfo {
 

@@ -9,8 +9,6 @@ package com.qiyi.plugin.collector.res
  *
  * Styleable will not be recorded to the arsc file, and the representation
  * in the R file is different from other resource types, so separate representation
- *
- * @author zhengtao
  */
 class StyleableEntry {
 

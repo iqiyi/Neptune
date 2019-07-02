@@ -89,20 +89,22 @@ public class MainActivity extends AppCompatActivity {
         }
 
         String apkName = "com.iqiyi.plugin.sample.apk";
+        Log.i(TAG, "install sample plugin from asset");
+        File targetFile = new File(getFilesDir(), apkName);
+        try {
+            InputStream is = getAssets().open("pluginapp/" + apkName);
+            FileUtils.copyToFile(is, targetFile);
+
+            installPluginInternal(targetFile.getAbsolutePath());
+            return;
+        } catch (IOException e) {
+            Toast.makeText(this, "sample plugin not found in asset", Toast.LENGTH_SHORT).show();
+        }
+        Log.i(TAG, "install sample plugin from sdcard");
         File sampleApk = new File(Environment.getExternalStorageDirectory(), apkName);
         if (sampleApk.exists()) {
-            installPluginInternal(sampleApk.getAbsolutePath());
-        } else {
-            Log.w(TAG, "sample plugin not exist in sdcard, try install from asset");
-            File targetFile = new File(getFilesDir(), apkName);
-            try {
-                InputStream is = getAssets().open("pluginapp/" + apkName);
-                FileUtils.copyToFile(is, targetFile);
 
-                installPluginInternal(targetFile.getAbsolutePath());
-            } catch (IOException e) {
-                Toast.makeText(this, "sample plugin not found in asset", Toast.LENGTH_SHORT).show();
-            }
+            installPluginInternal(sampleApk.getAbsolutePath());
         }
     }
 

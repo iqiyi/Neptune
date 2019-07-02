@@ -25,6 +25,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageInfo;
+import android.os.Build;
+import android.os.Looper;
 
 import org.qiyi.pluginlibrary.component.wraper.NeptuneInstrument;
 import org.qiyi.pluginlibrary.component.wraper.PluginInstrument;
@@ -35,6 +37,7 @@ import org.qiyi.pluginlibrary.pm.PluginPackageManagerNative;
 import org.qiyi.pluginlibrary.runtime.PluginManager;
 import org.qiyi.pluginlibrary.utils.PluginDebugLog;
 import org.qiyi.pluginlibrary.utils.ReflectionUtils;
+import org.qiyi.pluginlibrary.utils.RunUtil;
 import org.qiyi.pluginlibrary.utils.VersionUtils;
 
 import java.io.File;
@@ -68,15 +71,25 @@ public class Neptune {
 
         sHostContext = application;
         sGlobalConfig = config != null ? config
-                : new NeptuneConfig.NeptuneConfigBuilder().build();
-
+                : new NeptuneConfig.Builder().build();
         PluginDebugLog.setIsDebug(sGlobalConfig.isDebug());
 
         boolean hookInstr = VersionUtils.hasPie() || sGlobalConfig.getSdkMode() != NeptuneConfig.LEGACY_MODE;
         if (hookInstr) {
-            hookInstrumentation();
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2
+                && Looper.myLooper() != Looper.getMainLooper()) {
+                // 4.2以下只能在主线程执行ActivityThread#currentActivityThread()才能拿到值,
+                // 子线程获取是null，原因是系统使用了ThreadLocal保存该值
+                RunUtil.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        hookInstrumentation();
+                    }
+                });
+            } else {
+                hookInstrumentation();
+            }
         }
-
         // 调用getInstance()方法会初始化bindService
         PluginPackageManagerNative.getInstance(sHostContext).setPackageInfoManager(sGlobalConfig.getPluginInfoProvider());
         // 注册卸载监听广播
@@ -89,7 +102,7 @@ public class Neptune {
 
     public static NeptuneConfig getConfig() {
         if (sGlobalConfig == null) {
-            sGlobalConfig = new NeptuneConfig.NeptuneConfigBuilder().build();
+            sGlobalConfig = new NeptuneConfig.Builder().build();
         }
         return sGlobalConfig;
     }

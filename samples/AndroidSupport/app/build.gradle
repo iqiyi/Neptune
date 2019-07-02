@@ -31,6 +31,8 @@ dependencies {
     compile "com.android.support:recyclerview-v7:${ANDROID_SUPPORT_VERSION}"
     //compile "com.android.support:support-annotations:${ANDROID_SUPPORT_VERSION}"
     compile "com.android.support:appcompat-v7:${ANDROID_SUPPORT_VERSION}"
+    compile "com.android.support.constraint:constraint-layout:1.1.3"
+    compile "com.airbnb.android:lottie:${LOTTIE_VERSION}"
 
     compile "com.facebook.fresco:fresco:${FRESCO_VERSION}"
     //compile "com.airbnb.android:lottie:${LOTTIE_VERSION}"

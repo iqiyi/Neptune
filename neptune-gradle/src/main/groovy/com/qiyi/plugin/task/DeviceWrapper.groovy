@@ -51,11 +51,11 @@ class DeviceWrapper {
     }
 
     private String getPluginPackage() {
-        return pluginExt.packageName
+        return variant.applicationId
     }
 
     private String getPluginVersion() {
-        return pluginExt.versionName
+        return variant.versionName
     }
 
     private boolean shouldClearHostAppData() {
@@ -72,6 +72,10 @@ class DeviceWrapper {
 
     private boolean shouldLaunchPlugin() {
         return getBooleanProperty("autoLaunchPlugin", true) && deepLink.length() > 0
+    }
+
+    private boolean shouldUpdateNativeLibrary() {
+        return getBooleanProperty("updateJniLibs", false)
     }
 
     private boolean getBooleanProperty(String key, boolean defVal) {
@@ -293,6 +297,10 @@ class DeviceWrapper {
     }
 
     void installNativeLibrary() {
+        if (!shouldUpdateNativeLibrary()) {
+            println "wont update native so library for this build"
+            return
+        }
         // 删除设备上的lib目录
         deleteSoFiles()
         // 安装编译完成的so文件
@@ -343,7 +351,11 @@ class DeviceWrapper {
 
     File getJniLibsDirectory() {
         String path
-        String prefix = "intermediates/transforms/mergeJniLibs/${variant.buildType.name}"
+        String prefix = "intermediates/transforms/mergeJniLibs"
+        if (variant.flavorName != null && variant.flavorName.length() > 0) {
+            prefix = prefix + "/${variant.flavorName}"
+        }
+        prefix = prefix + "/${variant.buildType.name}"
         if (pluginExt.agpVersion >= VersionNumber.parse("3.0")) {
             // AGP 3.0.0+
             path = "${prefix}/0/lib/${hostAbi}"
@@ -353,7 +365,6 @@ class DeviceWrapper {
         }
 
         File jniLibs = new File(project.buildDir, path)
-
         println "project jniLibs directory is ${jniLibs.absolutePath}"
         return jniLibs
     }
@@ -515,7 +526,6 @@ class DeviceWrapper {
     }
 
     void enterPlugin() {
-        println "No support enter"
         if (shouldLaunchPlugin()) {
             try {
                 // 休眠5s等待主APP启动进入首页

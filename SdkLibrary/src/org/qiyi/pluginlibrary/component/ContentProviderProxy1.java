@@ -33,8 +33,8 @@ import org.qiyi.pluginlibrary.constant.IntentConstant;
 import org.qiyi.pluginlibrary.runtime.PluginLoadedApk;
 import org.qiyi.pluginlibrary.runtime.PluginManager;
 import org.qiyi.pluginlibrary.utils.ComponentFinder;
-import org.qiyi.pluginlibrary.utils.FileUtils;
 import org.qiyi.pluginlibrary.utils.PluginDebugLog;
+import org.qiyi.pluginlibrary.utils.ProcessUtils;
 import org.qiyi.pluginlibrary.utils.ReflectionUtils;
 
 import java.util.ArrayList;
@@ -69,7 +69,7 @@ public class ContentProviderProxy1 extends ContentProvider {
         if (loadedApk == null) {
             // 插件未加载，等待插件初始化成功
             PluginDebugLog.runtimeLog(TAG, "plugin not ready and wait environment init");
-            PluginManager.loadPluginSync(getContext(), pkgName, FileUtils.getCurrentProcessName(getContext()));
+            PluginManager.loadPluginSync(getContext(), pkgName, ProcessUtils.getCurrentProcessName(getContext()));
             loadedApk = PluginManager.getPluginLoadedApkByPkgName(pkgName);
         }
 

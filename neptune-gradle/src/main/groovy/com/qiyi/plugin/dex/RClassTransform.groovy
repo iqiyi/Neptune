@@ -122,7 +122,7 @@ class RClassTransform extends Transform{
 
 
     private void process(File file) {
-        if (!pluginExt.dexModify) {
+        if (!pluginExt.useBaseActivity) {
             println "RClassTransform no need to modify classes"
             return
         }

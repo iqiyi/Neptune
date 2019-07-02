@@ -33,8 +33,7 @@ afterEvaluate { project ->
 
                 repository(url: uri(getRepositoryUrl())) {
                     if (isRemoteRepo()) {
-                        //authentication(userName: getRepositoryUsername(), password: getRepositoryPassword())
-                        authentication(userName: "mbdvertical", password: "mbdvertical")
+                        authentication(userName: getRepositoryUsername(), password: getRepositoryPassword())
                     }
                 }
 

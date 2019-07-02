@@ -21,6 +21,8 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.net.Uri;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.support.annotation.NonNull;
@@ -32,8 +34,9 @@ import org.qiyi.pluginlibrary.install.IInstallCallBack;
 import org.qiyi.pluginlibrary.install.IUninstallCallBack;
 import org.qiyi.pluginlibrary.runtime.NotifyCenter;
 import org.qiyi.pluginlibrary.utils.ContextUtils;
-import org.qiyi.pluginlibrary.utils.FileUtils;
+import org.qiyi.pluginlibrary.utils.ErrorUtil;
 import org.qiyi.pluginlibrary.utils.PluginDebugLog;
+import org.qiyi.pluginlibrary.utils.ProcessUtils;
 
 import java.io.File;
 import java.util.Iterator;
@@ -45,6 +48,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import static org.qiyi.pluginlibrary.pm.PluginPackageManagerProvider.PLUGIN_INFO_KEY;
+import static org.qiyi.pluginlibrary.pm.PluginPackageManagerProvider.RESULT_KEY;
 
 /**
  * 此类的功能和{@link PluginPackageManager}基本一致<br/>
@@ -70,6 +76,7 @@ public class PluginPackageManagerNative {
     private PluginPackageManager mPackageManager;
     private IPluginPackageManager mService = null;
     private ServiceConnection mServiceConnection = null;
+    private Uri mProviderUri;
 
     private PluginPackageManagerNative() {
         // no-op
@@ -168,6 +175,7 @@ public class PluginPackageManagerNative {
 
         mContext = context.getApplicationContext();
         mPackageManager = PluginPackageManager.getInstance(mContext);
+        mProviderUri = PluginPackageManagerProvider.getUri(mContext);
         mIsInitialized = true;
 
         onBindService(mContext);
@@ -188,7 +196,7 @@ public class PluginPackageManagerNative {
                 context.startService(intent);
                 context.bindService(intent, getConnection(context), Context.BIND_AUTO_CREATE);
             } catch (Exception e) {
-                // ignore
+                // java.lang.IllegalStateException: Not allowed to start service Intent, app is in background uid UidRecord
             }
         }
     }
@@ -217,7 +225,17 @@ public class PluginPackageManagerNative {
                 // ignore
             }
         }
+        PluginDebugLog.runtimeLog(TAG, "canInstallPackage, service is disconnected, need rebind");
         onBindService(mContext);
+        // 通过ContentProvider查询
+        Bundle extras = new Bundle();
+        extras.putParcelable(PLUGIN_INFO_KEY, info);
+        Bundle result = callRemoteProvider(PluginPackageManagerProvider.CAN_INSTALL_PACKAGE, "", extras);
+        if (result != null) {
+            result.setClassLoader(PluginLiteInfo.class.getClassLoader());
+            return result.getBoolean(RESULT_KEY, true);
+        }
+        // default true
         return true;
     }
 
@@ -233,6 +251,7 @@ public class PluginPackageManagerNative {
                 // ignore
             }
         }
+        PluginDebugLog.runtimeLog(TAG, "installInternal, service is disconnected, need rebind");
         onBindService(mContext);
     }
 
@@ -277,7 +296,17 @@ public class PluginPackageManagerNative {
                 // ignore
             }
         }
+        PluginDebugLog.runtimeLog(TAG, "canUninstallPackage, service is disconnected, need rebind");
         onBindService(mContext);
+        // 通过ContentProvider查询
+        Bundle extras = new Bundle();
+        extras.putParcelable(PLUGIN_INFO_KEY, info);
+        Bundle result = callRemoteProvider(PluginPackageManagerProvider.CAN_UNINSTALL_PACAKGE, "", extras);
+        if (result != null) {
+            result.setClassLoader(PluginLiteInfo.class.getClassLoader());
+            return result.getBoolean(RESULT_KEY, true);
+        }
+        // default true
         return true;
     }
 
@@ -293,6 +322,7 @@ public class PluginPackageManagerNative {
                 // ignore
             }
         }
+        PluginDebugLog.runtimeLog(TAG, "deletePackageInternal, service is disconnected, need rebind");
         onBindService(mContext);
     }
 
@@ -308,6 +338,7 @@ public class PluginPackageManagerNative {
                 // ignore
             }
         }
+        PluginDebugLog.runtimeLog(TAG, "uninstallInternal, service is disconnected, need rebind");
         onBindService(mContext);
     }
 
@@ -386,7 +417,6 @@ public class PluginPackageManagerNative {
     /**
      * 获取已经安装的插件列表，通过aidl到{@link PluginPackageManager}中获取值，
      * 如果service不存在，直接在sharedPreference中读取值，并且启动service
-     *
      * @return 返回所有安装插件信息
      */
     public List<PluginLiteInfo> getInstalledApps() {
@@ -397,8 +427,20 @@ public class PluginPackageManagerNative {
                 // ignore
             }
         }
-        List<PluginLiteInfo> installedList = mPackageManager.getInstalledPackagesDirectly();
+        PluginDebugLog.runtimeLog(TAG, "getInstalledApps, service is disconnected, need rebind");
         onBindService(mContext);
+        // 通过ContentProvider获取数据
+        Bundle result = callRemoteProvider(PluginPackageManagerProvider.GET_INSTALLED_APPS, "");
+        List<PluginLiteInfo> installedList = null;
+        if (result != null) {
+            result.setClassLoader(PluginLiteInfo.class.getClassLoader());
+            installedList = result.getParcelableArrayList(RESULT_KEY);
+        }
+        // fallback to current process method
+        if (installedList == null || installedList.isEmpty()) {
+            // 调用当前进程的方法处理
+            installedList = mPackageManager.getInstalledPackagesDirectly();
+        }
         return installedList;
     }
 
@@ -432,9 +474,19 @@ public class PluginPackageManagerNative {
                 // ignore
             }
         }
-
-        boolean isInstalled = mPackageManager.isPackageInstalledDirectly(pkgName);
+        PluginDebugLog.runtimeLog(TAG, "isPackageInstalled, service is disconnected, need rebind");
         onBindService(mContext);
+        boolean isInstalled = false;
+        if (ProcessUtils.isMainProcess(mContext)) {
+            isInstalled = mPackageManager.isPackageInstalled(pkgName);
+        } else {
+            // 其他进程通过ContentProvider处理
+            Bundle result = callRemoteProvider(PluginPackageManagerProvider.IS_PACKAGE_INSTALLED, pkgName);
+            if (result != null) {
+                result.setClassLoader(PluginLiteInfo.class.getClassLoader());
+                isInstalled = result.getBoolean(RESULT_KEY, false);
+            }
+        }
         return isInstalled;
     }
 
@@ -480,22 +532,30 @@ public class PluginPackageManagerNative {
                 // ignore
             }
         }
-
         PluginDebugLog.runtimeLog(TAG, "getPackageInfo, service is disconnected, need rebind");
-        PluginLiteInfo info = mPackageManager.getPackageInfoDirectly(pkg);
         onBindService(mContext);
+        // 通过ContentProvider获取PluginLiteInfo
+        Bundle result = callRemoteProvider(PluginPackageManagerProvider.GET_PACKAGE_INFO, pkg);
+        PluginLiteInfo info = null;
+        if (result != null) {
+            result.setClassLoader(PluginLiteInfo.class.getClassLoader());
+            info = result.getParcelable(RESULT_KEY);
+        }
+        // still null, fallback to current process method
+        if (info == null) {
+            info = mPackageManager.getPackageInfoDirectly(pkg);
+        }
         return info;
-
     }
 
     /**
      * 获取插件的{@link android.content.pm.PackageInfo}
      */
     public PluginPackageInfo getPluginPackageInfo(String packageName) {
-        PluginLiteInfo pluginLiteInfo = getPackageInfo(packageName);
+        PluginLiteInfo pluginInfo = getPackageInfo(packageName);
         PluginPackageInfo target = null;
-        if (pluginLiteInfo != null) {
-            target = getPluginPackageInfo(mContext, pluginLiteInfo);
+        if (pluginInfo != null) {
+            target = getPluginPackageInfo(mContext, pluginInfo);
         }
 
         return target;
@@ -505,26 +565,58 @@ public class PluginPackageManagerNative {
      * 获取插件的{@link android.content.pm.PackageInfo}
      */
     public PluginPackageInfo getPluginPackageInfo(Context context, PluginLiteInfo mPackageInfo) {
+        if (mPackageInfo == null || TextUtils.isEmpty(mPackageInfo.packageName)) {
+            return null;
+        }
+
+        String pkgName = mPackageInfo.packageName;
+        if (isConnected()) {
+            try {
+                return mService.getPluginPackageInfo(pkgName);
+            } catch (RemoteException e) {
+                // ignore
+            }
+        }
+        PluginDebugLog.runtimeLog(TAG, "getPluginPackageInfo, service is disconnected, need rebind");
+        onBindService(mContext);
+        // 通过ContentProvider获取
+        Bundle result = callRemoteProvider(PluginPackageManagerProvider.GET_PLUGIN_PACKAGE_INFO, pkgName);
         PluginPackageInfo target = null;
-        if (mPackageInfo != null && !TextUtils.isEmpty(mPackageInfo.packageName)) {
-            if (isConnected()) {
-                try {
-                    target = mService.getPluginPackageInfo(mPackageInfo.packageName);
-                } catch (RemoteException e) {
-                    // ignore
+        if (result != null) {
+            result.setClassLoader(PluginPackageInfo.class.getClassLoader());
+            target = result.getParcelable(RESULT_KEY);
+        }
+        // still null fallback to current process method
+        if (target == null) {
+            PluginPackageManager.updateSrcApkPath(context, mPackageInfo);
+            if (!TextUtils.isEmpty(mPackageInfo.srcApkPath)) {
+                File file = new File(mPackageInfo.srcApkPath);
+                if (file.exists()) {
+                    target = new PluginPackageInfo(ContextUtils.getOriginalContext(mContext), file);
                 }
-            } else {
-                PluginPackageManager.updateSrcApkPath(context, mPackageInfo);
-                if (!TextUtils.isEmpty(mPackageInfo.srcApkPath)) {
-                    File file = new File(mPackageInfo.srcApkPath);
-                    if (file.exists()) {
-                        target = new PluginPackageInfo(ContextUtils.getOriginalContext(mContext), file);
-                    }
-                }
-                onBindService(mContext);
             }
         }
         return target;
+    }
+
+    /**
+     * 调用远程ContentProvider进行ipc获取信息
+     */
+    private Bundle callRemoteProvider(String method, String args) {
+        return callRemoteProvider(method, args, new Bundle());
+    }
+
+    /**
+     * 调用远程ContentProvider进行ipc获取信息
+     */
+    private Bundle callRemoteProvider(String method, String args, Bundle extras) {
+        Bundle result = null;
+        try {
+            result = mContext.getContentResolver().call(mProviderUri, method, args, extras);
+        } catch (Exception e) {
+            ErrorUtil.throwErrorIfNeed(e);
+        }
+        return result;
     }
 
     private interface Action {
@@ -789,7 +881,7 @@ public class PluginPackageManagerNative {
                 PluginDebugLog.runtimeLog(TAG, "onServiceConnected called");
                 if (mService != null) {
                     try {
-                        String processName = FileUtils.getCurrentProcessName(mContext);
+                        String processName = ProcessUtils.getCurrentProcessName(mContext);
                         mService.setActionFinishCallback(new ActionFinishCallback(processName));
                         NotifyCenter.notifyServiceConnected(mContext, PluginPackageManagerService.class.getName());
                     } catch (Exception e) {

@@ -112,9 +112,9 @@ public class IntentUtils {
             // Intent里放置了插件自定义的序列化数据
             // 进程重启时，android.os.BadParcelableException: ClassNotFoundException when unmarshalling:
             // 只能从 action 里面读取 packageName
-            //
             // Caused by: java.io.InvalidClassException: org.iqiyi.video.mode.lpt3; Incompatible class (SUID):
             result[0] = pkgName;
+            result[1] = "";
         }
         PluginDebugLog.runtimeFormatLog(TAG, "pluginPkg:%s, pluginCls:%s", result[0], result[1]);
         return result;
@@ -146,6 +146,13 @@ public class IntentUtils {
             return false;
         }
         return intent.getBooleanExtra(IntentConstant.EXTRA_TARGET_IS_PLUGIN_KEY, false);
+    }
+
+    public static boolean isIntentToPlugin(Intent intent) {
+        if (intent == null) {
+            return false;
+        }
+        return intent.getBooleanExtra(IntentConstant.EXTRA_START_OTHER_PLUGIN, false);
     }
 
     public static String getTargetPackage(Intent intent) {

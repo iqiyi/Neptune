@@ -26,6 +26,7 @@ import android.content.IntentFilter;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.annotation.Nullable;
+import android.text.TextUtils;
 import android.view.KeyEvent;
 
 import org.qiyi.pluginlibrary.Neptune;
@@ -34,10 +35,10 @@ import org.qiyi.pluginlibrary.pm.PluginLiteInfo;
 import org.qiyi.pluginlibrary.pm.PluginPackageManagerNative;
 import org.qiyi.pluginlibrary.runtime.NotifyCenter;
 import org.qiyi.pluginlibrary.runtime.PluginManager;
-import org.qiyi.pluginlibrary.utils.FileUtils;
 import org.qiyi.pluginlibrary.utils.IRecoveryCallback;
 import org.qiyi.pluginlibrary.utils.IntentUtils;
 import org.qiyi.pluginlibrary.utils.PluginDebugLog;
+import org.qiyi.pluginlibrary.utils.ProcessUtils;
 
 /**
  * 主进程恢复 中转Activity
@@ -56,8 +57,8 @@ public class TransRecoveryActivity1 extends Activity {
     private static int sLaunchPluginReceiverPriority;
     private BroadcastReceiver mFinishSelfReceiver;
     private BroadcastReceiver mLaunchPluginReceiver;
-    private String mPluginPackageName;
-    private String mPluginClassName;
+    private String mPackageName;
+    private String mClassName;
     private IRecoveryCallback mRecoveryCallback;
     private Handler mHandler = new Handler();
     private Runnable mMockServiceReady = new Runnable() {
@@ -74,37 +75,38 @@ public class TransRecoveryActivity1 extends Activity {
         initRecoveryCallback();
 
         String[] packageAndClass = IntentUtils.parsePkgAndClsFromIntent(getIntent());
-        mPluginPackageName = packageAndClass[0];
-        mPluginClassName = packageAndClass[1];
-        PluginDebugLog.runtimeFormatLog(TAG, "TransRecoveryActivity0 onCreate....%s %s", mPluginPackageName, mPluginClassName);
+        mPackageName = packageAndClass[0];
+        mClassName = packageAndClass[1];
+        PluginDebugLog.runtimeFormatLog(TAG, "TransRecoveryActivity0 onCreate....%s %s", mPackageName, mClassName);
 
-        if (mPluginPackageName == null) {
+        if (TextUtils.isEmpty(mPackageName)) {
             finish();
             return;
         }
 
-        mRecoveryCallback.beforeRecovery(this, mPluginPackageName, mPluginClassName);
+        mRecoveryCallback.beforeRecovery(this, mPackageName, mClassName);
 
         // PPMS 可能未连接，getPackageInfo 会直接读取 SharedPreference
-        PluginLiteInfo packageInfo = PluginPackageManagerNative.getInstance(this).getPackageInfo(mPluginPackageName);
+        PluginLiteInfo packageInfo = PluginPackageManagerNative.getInstance(this).getPackageInfo(mPackageName);
         boolean enableRecovery = packageInfo != null && packageInfo.enableRecovery;
 
         if (!enableRecovery) {
+            // PluginManager.launchPlugin(this, createLaunchPluginIntent(), ProcessUtils.getCurrentProcessName(this));
             finish();
             return;
         }
 
-        mRecoveryCallback.onSetContentView(this, mPluginPackageName, mPluginClassName);
+        mRecoveryCallback.onSetContentView(this, mPackageName, mClassName);
 
         mLaunchPluginReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(final Context context, Intent intent) {
-                PluginDebugLog.runtimeFormatLog(TAG, "LaunchPluginReceiver#onReceive %s %s", mPluginClassName, intent.getStringExtra(IntentConstant.EXTRA_SERVICE_CLASS));
+                PluginDebugLog.runtimeFormatLog(TAG, "LaunchPluginReceiver#onReceive %s %s", mClassName, intent.getStringExtra(IntentConstant.EXTRA_SERVICE_CLASS));
                 boolean ppmsReady = PluginPackageManagerNative.getInstance(context).isConnected();
-                boolean hostReady = mRecoveryCallback.beforeLaunch(context, mPluginPackageName, mPluginClassName);
+                boolean hostReady = mRecoveryCallback.beforeLaunch(context, mPackageName, mClassName);
                 if (ppmsReady && hostReady) {
-                    PluginDebugLog.runtimeFormatLog(TAG, "LaunchPluginReceiver#launch %s", mPluginClassName);
-                    PluginManager.launchPlugin(context, createLaunchPluginIntent(), FileUtils.getCurrentProcessName(context));
+                    PluginDebugLog.runtimeFormatLog(TAG, "LaunchPluginReceiver#launch %s", mClassName);
+                    PluginManager.launchPlugin(context, createLaunchPluginIntent(), ProcessUtils.getCurrentProcessName(context));
                     unregisterReceiver(mLaunchPluginReceiver);
                     mLaunchPluginReceiver = null;
                 }
@@ -119,7 +121,7 @@ public class TransRecoveryActivity1 extends Activity {
             @Override
             public void onReceive(Context context, Intent intent) {
                 TransRecoveryActivity1.this.finish();
-                mRecoveryCallback.afterRecovery(context, mPluginPackageName, mPluginClassName);
+                mRecoveryCallback.afterRecovery(context, mPackageName, mClassName);
             }
         };
         IntentFilter filter = new IntentFilter();
@@ -130,7 +132,11 @@ public class TransRecoveryActivity1 extends Activity {
 
     private Intent createLaunchPluginIntent() {
         Intent intent = new Intent(getIntent());
-        intent.setComponent(new ComponentName(mPluginPackageName, mPluginClassName));
+        if (TextUtils.isEmpty(mClassName)) {
+            intent.setPackage(mPackageName);
+        } else {
+            intent.setComponent(new ComponentName(mPackageName, mClassName));
+        }
         return intent;
     }
 

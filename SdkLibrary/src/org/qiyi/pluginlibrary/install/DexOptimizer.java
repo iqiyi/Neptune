@@ -20,7 +20,7 @@ package org.qiyi.pluginlibrary.install;
 import android.text.TextUtils;
 import android.util.Log;
 
-import org.qiyi.pluginlibrary.utils.FileUtils;
+import org.qiyi.pluginlibrary.utils.CpuAbiUtils;
 import org.qiyi.pluginlibrary.utils.PluginDebugLog;
 import org.qiyi.pluginlibrary.utils.VersionUtils;
 
@@ -42,7 +42,7 @@ public class DexOptimizer {
 
     public static boolean optimize(File dexFile, File optimizedDir,
                                    boolean useInterpretMode, ResultCallback cb) {
-        String isa = FileUtils.getCurrentInstructionSet();
+        String isa = CpuAbiUtils.getCurrentInstructionSet();
         OptimizeWorker worker = new OptimizeWorker(dexFile, optimizedDir, useInterpretMode, isa, cb);
         if (!worker.run()) {
             return false;

@@ -26,23 +26,17 @@ class QYPlugin implements Plugin<Project> {
             throw new GradleException("com.android.application not found, QYPlugin can be only apply to android application module")
         }
 
-        pluginExt = project.extensions.create("neptune", QYPluginExtension)
         this.project = project
 
         def android = project.extensions.getByType(AppExtension)
         def version = Version.ANDROID_GRADLE_PLUGIN_VERSION
         println "current AGP version ${version}"
 
+        pluginExt = project.extensions.create("neptune", QYPluginExtension)
         project.afterEvaluate {
             // init plugin extension
+            pluginExt.agpVersion = VersionNumber.parse(version)
             android.applicationVariants.each { ApplicationVariantImpl variant ->
-
-                pluginExt.with {
-                    agpVersion = VersionNumber.parse(version)
-                    packageName = variant.applicationId
-                    versionName = variant.versionName
-                    packagePath = packageName.replace('.'.charAt(0), File.separatorChar)
-                }
                 // 创建安装插件的Task
                 createInstallPluginTask(variant)
             }
@@ -83,7 +77,7 @@ class QYPlugin implements Plugin<Project> {
         if (!pluginExt.pluginMode) {
             // Not in plugin compile mode, close all the feature
             pluginExt.stripResource = false
-            pluginExt.dexModify = false
+            pluginExt.useBaseActivity = false
         }
 
         if (pluginExt.packageId <= 0x01 || pluginExt.packageId > 0x7F) {
@@ -94,7 +88,8 @@ class QYPlugin implements Plugin<Project> {
             pluginExt.stripResource = true
         }
 
-        String parameters = "plugin config parameters: pluginMode=${pluginExt.pluginMode}, packageId=0x${Integer.toHexString(pluginExt.packageId)}, stripResource=${pluginExt.stripResource}, dexModify=${pluginExt.dexModify}"
+        String parameters = "plugin config parameters: pluginMode=${pluginExt.pluginMode}, packageId=0x${Integer.toHexString(pluginExt.packageId)}, " +
+                "stripResource=${pluginExt.stripResource}, useBaseActivity=${pluginExt.useBaseActivity}"
         println parameters
     }
 }

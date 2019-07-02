@@ -35,6 +35,8 @@ public class IntentConstant {
     public static final String EXTRA_TARGET_PROCESS = "target_process";
     /* 启动Intent的key值 */
     public static final String EXTRA_START_INTENT_KEY = "target_start_intent";
+    /* 是否跳转其他插件的Flag */
+    public static final String EXTRA_START_OTHER_PLUGIN = "target_to_plugin";
     /* 启动插件的Action */
     public static final String ACTION_START_PLUGIN = "org.qiyi.plugin.library.START_PLUGIN";
 

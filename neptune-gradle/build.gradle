@@ -19,9 +19,9 @@ tasks.withType(GroovyCompile) {
 }
 
 repositories {
-    mavenLocal()
-    mavenCentral()
     jcenter()
+    mavenCentral()
+    mavenLocal()
     maven {
         url "https://maven.google.com"
     }
@@ -31,7 +31,7 @@ dependencies {
     compile gradleApi()
     compile localGroovy()
     //compileOnly 'com.android.tools.build:gradle:2.3.3'
-    compileOnly 'com.android.tools.build:gradle:3.4.0'
+    compileOnly 'com.android.tools.build:gradle:3.4.1'
 }
 
 // Upload to Bintray

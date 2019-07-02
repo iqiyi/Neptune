@@ -4,7 +4,7 @@ import com.android.build.gradle.internal.api.ApplicationVariantImpl
 import com.android.build.gradle.tasks.ManifestProcessorTask
 import com.android.build.gradle.tasks.MergeResources
 import com.android.build.gradle.tasks.ProcessAndroidResources
-import com.qiyi.plugin.QYPluginExtension
+import com.android.builder.model.Version
 import org.gradle.api.GradleException
 import org.gradle.api.Project
 import org.gradle.api.Task
@@ -12,17 +12,18 @@ import org.gradle.util.VersionNumber
 
 class TaskUtil {
 
+    static VersionNumber agpVersion = VersionNumber.parse(Version.ANDROID_GRADLE_PLUGIN_VERSION)
+
     public static MergeResources getMergeResourcesTask(Project project,
                                                 ApplicationVariantImpl appVariant) {
         def scope = appVariant.getVariantData().getScope()
-        QYPluginExtension extension = project.extensions.findByType(QYPluginExtension.class)
 
         MergeResources mergeResTask
-        if (extension.agpVersion >= VersionNumber.parse("3.3")) {
+        if (agpVersion >= VersionNumber.parse("3.3")) {
             mergeResTask = appVariant.mergeResourcesProvider.get()
-        } else if (extension.agpVersion >= VersionNumber.parse("3.2")) {
+        } else if (agpVersion >= VersionNumber.parse("3.2")) {
             mergeResTask = appVariant.mergeResources
-        } else if (extension.agpVersion >= VersionNumber.parse("3.0")) {
+        } else if (agpVersion >= VersionNumber.parse("3.0")) {
             mergeResTask = appVariant.getVariantData().mergeResourcesTask
         } else {
             String mergeTaskName = scope.getMergeResourcesTask().name
@@ -35,13 +36,11 @@ class TaskUtil {
     public static ProcessAndroidResources getProcessAndroidResourcesTask(Project project,
                                                                   ApplicationVariantImpl appVariant) {
         def scope = appVariant.getVariantData().getScope()
-        QYPluginExtension extension = project.extensions.findByType(QYPluginExtension.class)
-
         ProcessAndroidResources processResTask
-        if (extension.agpVersion >= VersionNumber.parse("3.3")) {
+        if (agpVersion >= VersionNumber.parse("3.3")) {
             processResTask = appVariant.getVariantData().taskContainer.processAndroidResTask.get()
         } else {
-            String processResTaskName = extension.agpVersion >= VersionNumber.parse("3.0") ?
+            String processResTaskName = agpVersion >= VersionNumber.parse("3.0") ?
                     scope.getProcessResourcesTask().name : scope.getGenerateRClassTask().name
             processResTask = project.tasks.getByName(processResTaskName) as ProcessAndroidResources
         }
@@ -52,14 +51,13 @@ class TaskUtil {
     public static ManifestProcessorTask getManifestProcessorTask(Project project,
                                                    ApplicationVariantImpl appVariant) {
         def scope = appVariant.getVariantData().getScope()
-        QYPluginExtension extension = project.extensions.findByType(QYPluginExtension.class)
 
         ManifestProcessorTask manifestTask
-        if (extension.agpVersion >= VersionNumber.parse("3.3")) {
+        if (agpVersion >= VersionNumber.parse("3.3")) {
             manifestTask = appVariant.getVariantData().getTaskContainer().processManifestTask.get()
-        } else if (extension.agpVersion >= VersionNumber.parse("3.2")) {
+        } else if (agpVersion >= VersionNumber.parse("3.2")) {
             manifestTask = appVariant.getVariantData().getTaskContainer().processManifestTask
-        } else if (extension.agpVersion >= VersionNumber.parse("3.1")) {
+        } else if (agpVersion >= VersionNumber.parse("3.1")) {
             // AGP 3.1 返回的是ManifestProcessTask
             Object task = appVariant.getVariantData().getScope().manifestProcessorTask
             if (task instanceof ManifestProcessorTask) {
@@ -67,7 +65,7 @@ class TaskUtil {
             } else {
                 throw new GradleException("ManifestProcessorTask unknown task type ${task.getClass().name}")
             }
-        } else if (extension.agpVersion >= VersionNumber.parse("3.0")) {
+        } else if (agpVersion >= VersionNumber.parse("3.0")) {
             // AGP 3.0.1 返回的是AndroidTask类型, AndroidTask类在3.1中被删除了，这里使用反射创建
             Object task = scope.manifestProcessorTask
             try {
@@ -97,9 +95,8 @@ class TaskUtil {
     }
 
     public static Task getAssembleTask(Project project, ApplicationVariantImpl appVariant) {
-        QYPluginExtension extension = project.extensions.findByType(QYPluginExtension.class)
         Task assemble
-        if (extension.agpVersion >= VersionNumber.parse("3.3")) {
+        if (agpVersion >= VersionNumber.parse("3.3")) {
             assemble = appVariant.assembleProvider.get()
         } else {
             assemble = appVariant.assemble

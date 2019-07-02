@@ -57,7 +57,9 @@ public class PluginInstaller {
 
     public static final String PLUGIN_ROOT_PATH = "pluginapp";
     public static final String APK_SUFFIX = ".apk";
+    public static final String ZIP_SUFFIX = ".zip";
     public static final String NATIVE_LIB_PATH = "lib";
+    public static final String NATIVE_DEX_PATH = "dex";
     public static final String SO_SUFFIX = ".so";
     public static final String DEX_SUFFIX = ".dex";
     public static final String ANDROID_ASSETS = "/android_asset/";
@@ -88,6 +90,7 @@ public class PluginInstaller {
             return t;
         }
     }
+
     // 插件安装线程池
     private static Executor sInstallerExecutor = Executors.newFixedThreadPool(1, new InstallerThreadFactory());
 
@@ -121,17 +124,17 @@ public class PluginInstaller {
      * @param info 插件info信息
      * @return 对应的schema路径
      */
-    private static String mappingPath(@NonNull PluginLiteInfo info) {
+    private static String mappingSchemaPath(@NonNull PluginLiteInfo info) {
         if (TextUtils.isEmpty(info.mPath)) {
-            // builtIn
+            // 路径为空，认为是内置插件
             String buildInPath = SCHEME_ASSETS + PLUGIN_ROOT_PATH + "/" + info.packageName + APK_SUFFIX;
             PluginDebugLog.installFormatLog(TAG, "install buildIn apk: %s, info: %s", buildInPath, info);
             return buildInPath;
         }
         String filePath = info.mPath;
+        Uri uri = Uri.parse(filePath);
         if (filePath.startsWith(SCHEME_FILE)) {
-            Uri uri = Uri.parse(filePath);
-            filePath = uri.getPath();
+            filePath = uri.getPath();  //文件绝对路径
             if (TextUtils.isEmpty(filePath)) {
                 throw new IllegalArgumentException("illegal install file path: " + info.mPath);
             }
@@ -143,12 +146,13 @@ public class PluginInstaller {
         }
 
         PluginDebugLog.installFormatLog(TAG, "install external apk: %s, info: %s", filePath, info);
-        String targetPath;
+        String targetPath = info.mPath;
+        // 根据文件后缀做兼容
         if (filePath.endsWith(SO_SUFFIX)) {
             targetPath = SCHEME_SO + filePath;
         } else if (filePath.endsWith(DEX_SUFFIX)) {
             targetPath = SCHEME_DEX + filePath;
-        } else {
+        } else if (TextUtils.isEmpty(uri.getScheme())){
             targetPath = SCHEME_FILE + filePath;
         }
         return targetPath;
@@ -165,7 +169,7 @@ public class PluginInstaller {
      */
     public static void startInstall(final Context context, @NonNull final PluginLiteInfo info, final IInstallCallBack callBack) {
         // mapping获取schema形式的path
-        final String targetPath = mappingPath(info);
+        final String targetPath = mappingSchemaPath(info);
         // 根据版本判断是启用独立Service进程安装，还是直接安装
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.JELLY_BEAN
                 || Neptune.getConfig().withInstallerProcess()
@@ -176,8 +180,11 @@ public class PluginInstaller {
             intent.setClass(context, PluginInstallerService.class);
             intent.putExtra(IntentConstant.EXTRA_SRC_FILE, targetPath);
             intent.putExtra(IntentConstant.EXTRA_PLUGIN_INFO, (Parcelable) info);
-
-            context.startService(intent);
+            try {
+                context.startService(intent);
+            } catch (Exception e) {
+                // java.lang.IllegalStateException: Not allowed to start service Intent, app is in background uid UidRecord
+            }
         } else {
             // 4.2以上直接在当前进程安装
             sInstallerExecutor.execute(new Runnable() {
@@ -214,65 +221,96 @@ public class PluginInstaller {
     }
 
     /**
-     * 安装so插件，只做拷贝
+     * 安装so插件，解压释放压缩包中的so库到相应的目录
+     * 压缩包按照apk格式：对应架构的so库放到lib/{arch}/目录下
      */
     private static void installSoPlugin(Context context, String srcFile,
                                         PluginLiteInfo info, IInstallCallBack callback) {
-        String soFilePath = srcFile.substring(PluginInstaller.SCHEME_SO.length());
-        File destFileTemp = new File(PluginInstaller.getPluginappRootPath(context), System.currentTimeMillis() + ".tmp");
-        File soFile = new File(soFilePath);
-        if (!soFile.exists()) {
+        String soZipPath = srcFile.substring(PluginInstaller.SCHEME_SO.length());
+        File soZipFile = new File(soZipPath);
+        if (!soZipFile.exists()) {
             setInstallFail(context, srcFile, ErrorType.INSTALL_ERROR_SO_NOT_EXIST, info, callback);
             return;
         }
 
-        boolean copyResult = FileUtils.copyToFile(soFile, destFileTemp);
-        if (copyResult && !TextUtils.isEmpty(info.packageName)) {
-            File destFile = new File(PluginInstaller.getPluginappRootPath(context), info.packageName + PluginInstaller.SO_SUFFIX);
-            if (destFileTemp.exists() && destFileTemp.renameTo(destFile)) {
-
-                String libDir = PluginInstaller.getPluginappRootPath(context).getAbsolutePath() + File.separator + info.packageName;
-                FileUtils.deleteDirectory(new File(libDir));
-                boolean flag = FileUtils.installNativeLibrary(context, destFile.getAbsolutePath(), libDir);
-                if (flag) {
-                    setInstallSuccess(context, srcFile, destFile.getAbsolutePath(), info, callback);
-                    return;
-                } else {
-                    PluginDebugLog.installLog(TAG, "handleInstall so, install so lib failed!");
-                    setInstallFail(context, srcFile, ErrorType.INSTALL_ERROR_SO_UNZIP_FAILED, info, callback);
-                    return;
-                }
-            } else {
-                PluginDebugLog.installLog(TAG, "handleInstall so, rename failed!");
-            }
+        // 获取插件安装地址
+        String packageName = info.packageName;
+        String apkName = info.packageName + "." + info.pluginVersion + PluginInstaller.APK_SUFFIX;
+        File destFile = getDefaultInstallLocation(context, apkName);
+        int copyResult = tryCopyPluginFile(soZipFile, destFile);
+        if (copyResult != ErrorType.SUCCESS) {
+            setInstallFail(context, srcFile, copyResult, info, callback);
+            return;
         }
-        setInstallFail(context, srcFile, ErrorType.INSTALL_ERROR_SO_COPY_FAILED, info, callback);
+
+        PluginDebugLog.installFormatLog(TAG,
+                "installSoPlugin, begin install native lib, pkgName:%s", packageName);
+        File pkgDir = new File(PluginInstaller.getPluginappRootPath(context), packageName);
+        if (!pkgDir.exists() && !pkgDir.mkdirs()) {
+            setInstallFail(context, srcFile, ErrorType.INSTALL_ERROR_MKDIR_FAILED, info, callback);
+            return;
+        }
+
+        File libDir = new File(pkgDir, PluginInstaller.NATIVE_LIB_PATH);
+        FileUtils.deleteDirectory(libDir);
+        if (!libDir.exists() && !libDir.mkdirs()) {
+            setInstallFail(context, srcFile, ErrorType.INSTALL_ERROR_MKDIR_FAILED, info, callback);
+            return;
+        }
+
+        boolean extractResult = tryCopyNativeLib(context, destFile.getAbsolutePath(), libDir.getAbsolutePath());
+        PluginDebugLog.installFormatLog(TAG, "installSoPlugin %s success: %s", packageName, extractResult);
+        if (extractResult) {
+            setInstallSuccess(context, srcFile, destFile.getAbsolutePath(), info, callback);
+        } else {
+            setInstallFail(context, srcFile, ErrorType.INSTALL_ERROR_SO_UNZIP_FAILED, info, callback);
+        }
     }
 
     /**
-     * 安装Dex插件，只做拷贝
+     * 安装dex插件，只做拷贝
+     * 压缩包结构按照apk格式：classes.dex, classes2.dex
      */
     private static void installDexPlugin(Context context, String srcFile,
                                          PluginLiteInfo info, IInstallCallBack callback) {
-        String dexFilePath = srcFile.substring(PluginInstaller.SCHEME_DEX.length());
-        File destFileTemp = new File(PluginInstaller.getPluginappRootPath(context), System.currentTimeMillis() + ".tmp");
-        File dexFile = new File(dexFilePath);
-        if (!dexFile.exists()) {
+        String dexZipPath = srcFile.substring(PluginInstaller.SCHEME_DEX.length());
+        File dexZipFile = new File(dexZipPath);
+        if (!dexZipFile.exists()) {
             setInstallFail(context, srcFile, ErrorType.INSTALL_ERROR_DEX_NOT_EXIST, info, callback);
             return;
         }
 
-        boolean copyResult = FileUtils.copyToFile(new File(dexFilePath), destFileTemp);
-        if (copyResult && !TextUtils.isEmpty(info.packageName)) {
-            File destFile = new File(PluginInstaller.getPluginappRootPath(context), info.packageName + PluginInstaller.DEX_SUFFIX);
-            if (destFileTemp.exists() && destFileTemp.renameTo(destFile)) {
-                setInstallSuccess(context, srcFile, destFile.getAbsolutePath(), info, callback);
-                return;
-            } else {
-                PluginDebugLog.installLog(TAG, "handleInstall dex, rename failed!");
-            }
+        // 获取插件安装地址
+        String packageName = info.packageName;
+        String apkName = info.packageName + "." + info.pluginVersion + PluginInstaller.APK_SUFFIX;
+        File destFile = getDefaultInstallLocation(context, apkName);
+        int copyResult = tryCopyPluginFile(dexZipFile, destFile);
+        if (copyResult != ErrorType.SUCCESS) {
+            setInstallFail(context, srcFile, copyResult, info, callback);
+            return;
         }
-        setInstallFail(context, srcFile, ErrorType.INSTALL_ERROR_DEX_COPY_FAILED, info, callback);
+
+        PluginDebugLog.installFormatLog(TAG,
+                "installDexPlugin, begin install native lib, pkgName:%s", packageName);
+        String rootDir = PluginInstaller.getPluginappRootPath(context).getAbsolutePath();
+        File pkgDir = new File(rootDir, packageName);
+        if (!pkgDir.exists() && !pkgDir.mkdirs()) {
+            setInstallFail(context, srcFile, ErrorType.INSTALL_ERROR_MKDIR_FAILED, info, callback);
+            return;
+        }
+
+        File dexDir = new File(pkgDir, PluginInstaller.NATIVE_DEX_PATH);
+        FileUtils.deleteDirectory(dexDir);
+        if (!dexDir.exists() && !dexDir.mkdirs()) {
+            setInstallFail(context, srcFile, ErrorType.INSTALL_ERROR_MKDIR_FAILED, info, callback);
+            return;
+        }
+        // dexopt, 提前优化插件的dex
+        PluginDebugLog.installFormatLog(TAG,
+                "doInstall: began install dex,pkgName:%s", packageName);
+        tryInstallNativeDex(destFile, packageName, rootDir);
+        PluginDebugLog.installFormatLog(TAG, "installDexPlugin %s success", packageName);
+        setInstallSuccess(context, srcFile, destFile.getAbsolutePath(), info, callback);
     }
 
 
@@ -337,14 +375,14 @@ public class PluginInstaller {
                                   PluginLiteInfo info, IInstallCallBack callback) {
 
         if (is == null || TextUtils.isEmpty(srcPathWithScheme)) {
-            PluginDebugLog.installLog(TAG, "doInstall : srcPathWithScheme or InputStream is null and just return!");
+            PluginDebugLog.installLog(TAG, "doInstall: srcPathWithScheme or InputStream is null and just return!");
             setInstallFail(context, srcPathWithScheme, ErrorType.INSTALL_ERROR_STREAM_NULL,
                     info, callback);
             return;
         }
 
         PluginDebugLog.installFormatLog(TAG,
-                "doInstall : %s,pkgName: %s", srcPathWithScheme, info.packageName);
+                "doInstall: %s, pkgName: %s", srcPathWithScheme, info.packageName);
 
         PackageManager pm = context.getPackageManager();
         String apkFilePath = null;
@@ -431,39 +469,16 @@ public class PluginInstaller {
         // 获取插件安装地址
         String apkName = packageName + "." + info.pluginVersion + PluginInstaller.APK_SUFFIX;
         File destFile = getPreferredInstallLocation(context, pkgInfo, apkName);
-        if (destFile.exists()) {
-            destFile.delete();
+        int copyResult = tryCopyPluginFile(srcApkFile, destFile);
+        if (copyResult != ErrorType.SUCCESS) {
+            setInstallFail(context, srcPathWithScheme, copyResult, info, callback);
+            return;
         }
 
-        if (TextUtils.equals(srcApkFile.getParent(), destFile.getParent())) {
-            // 目标文件和临时文件在同一目录下
-            PluginDebugLog.installFormatLog(TAG,
-                    "doInstall:%s tmpFile and destFile in same directory!", packageName);
-            if (!srcApkFile.renameTo(destFile)) {
-                // rename失败，尝试拷贝
-                boolean copyResult = FileUtils.copyToFile(srcApkFile, destFile);
-                if (!copyResult) {
-                    setInstallFail(context, srcPathWithScheme, ErrorType.INSTALL_ERROR_RENAME_FAILED, info, callback);
-                    return;
-                } else if (srcApkFile.getAbsolutePath().endsWith(".tmp")) {
-                    srcApkFile.delete();  //拷贝成功之后, 删除临时文件
-                }
-            }
-        } else {
-            // 拷贝到其他目录，比如安装到 sdcard
-            PluginDebugLog.installFormatLog(TAG,
-                    "doInstall:%s tmpFile and destFile in different directory!", packageName);
-            boolean tempResult = FileUtils.copyToFile(srcApkFile, destFile);
-            if (!tempResult) {
-                PluginDebugLog.installFormatLog(TAG, "doInstall:%s copy apk failed!", packageName);
-                setInstallFail(context, srcPathWithScheme, ErrorType.INSTALL_ERROR_APK_COPY_FAILED, info, callback);
-                return;
-            }
-        }
         PluginDebugLog.installFormatLog(TAG,
-                "pluginInstallerService begin install native lib, pkgName:%s", packageName);
-
-        File pkgDir = new File(PluginInstaller.getPluginappRootPath(context), packageName);
+                "doInstall: begin install native lib, pkgName:%s", packageName);
+        String rootDir = PluginInstaller.getPluginappRootPath(context).getAbsolutePath();
+        File pkgDir = new File(rootDir, packageName);
         if (!pkgDir.exists() && !pkgDir.mkdirs()) {
             setInstallFail(context, srcPathWithScheme, ErrorType.INSTALL_ERROR_MKDIR_FAILED, info, callback);
             return;
@@ -475,29 +490,80 @@ public class PluginInstaller {
             return;
         }
 
-        tryCopyNativeLib(context, destFile.getAbsolutePath(), pkgInfo, libDir.getAbsolutePath());
+        tryCopyNativeLib(context, destFile.getAbsolutePath(), libDir.getAbsolutePath());
         PluginDebugLog.installFormatLog(TAG,
-                "pluginInstallerService finish install lib,pkgName:%s", packageName);
+                "doInstall: finish install lib,pkgName:%s", packageName);
         // dexopt, 提前优化插件的dex
         PluginDebugLog.installFormatLog(TAG,
-                "pluginInstallerService began install dex,pkgName:%s", packageName);
-        FileUtils.installDex(destFile, packageName, PluginInstaller.getPluginappRootPath(context).getAbsolutePath());
+                "doInstall: began install dex,pkgName:%s", packageName);
+        tryInstallNativeDex(destFile, packageName, rootDir);
         PluginDebugLog.installFormatLog(TAG,
-                "pluginInstallerService finish install dex,pkgName:%s", packageName);
+                "doInstall: finish install dex,pkgName:%s", packageName);
         // dexoat结束之后，再通知插件安装完成
         setInstallSuccess(context, srcPathWithScheme, destFile.getAbsolutePath(), info, callback);
     }
 
     /**
-     * 拷贝是否so库到lib目录
+     * 拷贝插件文件，如果在相同文件夹下面，直接rename，否则copy
+     * @param srcFile  插件源文件
+     * @param destFile  插件目标文件
+     * @return 0: copy成功，其他：对应的错误码
+     */
+    private static int tryCopyPluginFile(File srcFile, File destFile) {
+        int copyResult = ErrorType.SUCCESS;
+        if (destFile.exists()) {
+            destFile.delete();
+        }
+
+        if (TextUtils.equals(srcFile.getParent(), destFile.getParent())) {
+            // 目标文件和临时文件在同一目录下
+            PluginDebugLog.installLog(TAG,
+                    "tryCopyPluginFile: tmpFile and destFile in same directory!");
+            if (!srcFile.renameTo(destFile)) {
+                // rename失败，尝试拷贝
+                boolean tempResult = FileUtils.copyToFile(srcFile, destFile);
+                if (!tempResult) {
+                    PluginDebugLog.installLog(TAG, "tryCopyPluginFile: copy apk failed!");
+                    copyResult = ErrorType.INSTALL_ERROR_RENAME_FAILED;
+                } else {
+                    srcFile.delete();
+                }
+            }
+        } else {
+            // 拷贝到其他目录，比如安装到 sdcard
+            PluginDebugLog.installLog(TAG,
+                    "tryCopyPluginFile: tmpFile and destFile in different directory!");
+            boolean tempResult = FileUtils.copyToFile(srcFile, destFile);
+            if (!tempResult) {
+                PluginDebugLog.installLog(TAG, "tryCopyPluginFile: copy apk failed!");
+                copyResult = ErrorType.INSTALL_ERROR_APK_COPY_FAILED;
+            }
+        }
+        return copyResult;
+    }
+
+    /**
+     * 拷贝释放so库到对应的lib目录
      *
      * @param context 上下文
      * @param apkPath 插件apk文件
-     * @param pkgInfo 插件packageInfo
      * @param libDir  插件lib目录
      */
-    private static void tryCopyNativeLib(Context context, String apkPath, PackageInfo pkgInfo, String libDir) {
-        FileUtils.installNativeLibrary(context, apkPath, pkgInfo, libDir);
+    private static boolean tryCopyNativeLib(Context context, String apkPath, String libDir) {
+        // 拷贝Native SO库
+        return FileUtils.installNativeLibrary(context, apkPath, libDir);
+    }
+
+    /**
+     * 执行dexopt优化dex，提高插件运行速度
+     *
+     * @param apkFile  插件apk文件
+     * @param pkgName  插件包名
+     * @param pkgDirPath  dexopt目录
+     */
+    private static void tryInstallNativeDex(File apkFile, String pkgName, String pkgDirPath) {
+        // 进行dexopt优化dex
+        FileUtils.installDex(apkFile, pkgName, pkgDirPath);
     }
 
 
@@ -588,20 +654,26 @@ public class PluginInstaller {
             }
         }
 
-        File destFile = null;
         if (preferExternal) {
             // 尝试安装到外部存储器
             File externalDir = context.getExternalFilesDir(PluginInstaller.PLUGIN_ROOT_PATH);
             if (externalDir != null && externalDir.exists()) {
-                destFile = new File(externalDir, apkName);
+                File destFile = new File(externalDir, apkName);
                 PluginDebugLog.installFormatLog(TAG, "install to Location %s", destFile.getPath());
                 return destFile;
             }
         }
-        // 默认安装到内置internal data dir
-        destFile = new File(PluginInstaller.getPluginappRootPath(context), apkName);
-        PluginDebugLog.installFormatLog(TAG, "install to Location %s:", destFile.getPath());
+        // 返回默认安装位置
+        return getDefaultInstallLocation(context, apkName);
+    }
 
+    /**
+     * 获取默认的安装目录
+     */
+    private static File getDefaultInstallLocation(Context context, String apkName) {
+        // 默认安装到内置internal data dir
+        File destFile = new File(PluginInstaller.getPluginappRootPath(context), apkName);
+        PluginDebugLog.installFormatLog(TAG, "install to Location %s:", destFile.getPath());
         return destFile;
     }
 

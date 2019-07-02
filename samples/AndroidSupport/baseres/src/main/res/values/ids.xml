@@ -131,4 +131,19 @@
 	<item type="id" name="focusCrop" />
 	<item type="id" name="strong" />
 	<item type="id" name="weak" />
+    <!-- constraint-layout -->
+    <item type="id" name="gone" />
+    <item type="id" name="invisible" />
+    <item type="id" name="parent" />
+    <item type="id" name="percent" />
+    <item type="id" name="spread" />
+    <item type="id" name="wrap" />
+    <item type="id" name="packed" />
+    <item type="id" name="spread_inside" />
+    <item type="id" name="barrier" />
+    <item type="id" name="chains" />
+    <item type="id" name="dimensions" />
+    <item type="id" name="direct" />
+    <item type="id" name="groups" />
+    <item type="id" name="standard" />
 </resources>

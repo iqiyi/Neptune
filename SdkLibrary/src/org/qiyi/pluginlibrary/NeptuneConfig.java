@@ -46,7 +46,7 @@ public final class NeptuneConfig {
     /* Debug调试日志是否打开 */
     private boolean mIsDebug;
 
-    NeptuneConfig(NeptuneConfigBuilder builder) {
+    NeptuneConfig(Builder builder) {
         this.mSdkMode = builder.sdkMode;
         this.mPluginInfoProvider = builder.pluginInfoProvider;
         this.mRecoveryCallback = builder.recoveryCallback;
@@ -80,7 +80,7 @@ public final class NeptuneConfig {
         return mIsDebug;
     }
 
-    public static class NeptuneConfigBuilder {
+    public static class Builder {
         int sdkMode = 0;
         IPluginInfoProvider pluginInfoProvider;
         IRecoveryCallback recoveryCallback;
@@ -88,32 +88,32 @@ public final class NeptuneConfig {
         boolean installerProcess;
         boolean isDebug;
 
-        public NeptuneConfigBuilder configSdkMode(int sdkMode) {
+        public Builder configSdkMode(int sdkMode) {
             this.sdkMode = sdkMode;
             return this;
         }
 
-        public NeptuneConfigBuilder pluginInfoProvider(IPluginInfoProvider pluginInfoProvider) {
+        public Builder pluginInfoProvider(IPluginInfoProvider pluginInfoProvider) {
             this.pluginInfoProvider = pluginInfoProvider;
             return this;
         }
 
-        public NeptuneConfigBuilder recoveryCallback(IRecoveryCallback callback) {
+        public Builder recoveryCallback(IRecoveryCallback callback) {
             this.recoveryCallback = callback;
             return this;
         }
 
-        public NeptuneConfigBuilder enableDebug(boolean isDebuggable) {
+        public Builder enableDebug(boolean isDebuggable) {
             this.isDebug = isDebuggable;
             return this;
         }
 
-        public NeptuneConfigBuilder supportProvider(boolean supportProvider) {
+        public Builder supportProvider(boolean supportProvider) {
             this.supportProvider = supportProvider;
             return this;
         }
 
-        public NeptuneConfigBuilder installerProcess(boolean process) {
+        public Builder installerProcess(boolean process) {
             this.installerProcess = process;
             return this;
         }

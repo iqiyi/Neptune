@@ -17,16 +17,17 @@
  */
 package org.qiyi.pluginlibrary.component.wraper;
 
-import android.annotation.NonNull;
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Intent;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.support.v4.util.ArrayMap;
 
 import org.qiyi.pluginlibrary.component.TransRecoveryActivity0;
 import org.qiyi.pluginlibrary.component.TransRecoveryActivity1;
 import org.qiyi.pluginlibrary.component.TransRecoveryActivity2;
+import org.qiyi.pluginlibrary.utils.ErrorUtil;
 
 import java.util.UUID;
 
@@ -47,18 +48,30 @@ class ActivityRecoveryHelper {
         return activity == null || activity.getIntent() == null;
     }
 
-    Bundle recoveryIcicle(Activity activity, Bundle icicle) {
+    Bundle recoveryIcicle(Activity activity, Bundle icicle, ClassLoader classLoader) {
         if (shouldIgnore(activity)) {
+            if (icicle != null) {
+                // 设置extra ClassLoader
+                icicle.setClassLoader(classLoader);
+            }
             return icicle;
         }
+        // 设置Intent和Bundle的 ClassLoader，不然可能会出现 BadParcelException, ClassNotFound
+        Intent intent = activity.getIntent();
+        intent.setExtrasClassLoader(classLoader);
+        Bundle savedInstanceState = icicle;
         String id = activity.getIntent().getStringExtra(KEY_RECOVERY_ICICLE);
         if (id != null) {
             Bundle mappedIcicle = mPendingIcicleMap.remove(id);
             if (mappedIcicle != null) {
-                return mappedIcicle;
+                savedInstanceState = mappedIcicle;
             }
         }
-        return icicle;
+        if (savedInstanceState != null) {
+            // 设置extra ClassLoader
+            savedInstanceState.setClassLoader(classLoader);
+        }
+        return savedInstanceState;
     }
 
     void saveIcicle(Activity activity, Bundle icicle) {
@@ -67,8 +80,16 @@ class ActivityRecoveryHelper {
         }
         String id = UUID.randomUUID().toString();
         Intent intent = activity.getIntent();
-        intent.putExtra(KEY_RECOVERY_ICICLE, id);
-        mPendingIcicleMap.put(id, icicle);
+        try {
+            intent.putExtra(KEY_RECOVERY_ICICLE, id);
+            mPendingIcicleMap.put(id, icicle);
+        } catch (RuntimeException e) {
+            // Intent里放置了插件自定义的序列化数据，进程重启时操作Intent会导致反序列数据失败
+            ErrorUtil.throwErrorIfNeed(e);
+        } catch (OutOfMemoryError error) {
+            // Intent反序列化时可能数据量很大发生OOM
+            ErrorUtil.throwErrorIfNeed(error);
+        }
     }
 
     void saveSavedInstanceState(Activity activity, Bundle savedInstanceState) {
@@ -77,8 +98,13 @@ class ActivityRecoveryHelper {
         }
         String id = UUID.randomUUID().toString();
         Intent intent = activity.getIntent();
-        intent.putExtra(KEY_RECOVERY_SAVED_INSTANCE_STATE, id);
-        mPendingSavedInstanceStateMap.put(id, savedInstanceState);
+        try {
+            intent.putExtra(KEY_RECOVERY_SAVED_INSTANCE_STATE, id);
+            mPendingSavedInstanceStateMap.put(id, savedInstanceState);
+        } catch (RuntimeException e) {
+            // Intent里放置了插件自定义的序列化数据，进程重启时操作Intent会导致反序列数据失败
+            ErrorUtil.throwErrorIfNeed(e);
+        }
     }
 
     void mockActivityOnRestoreInstanceStateIfNeed(Instrumentation instr, Activity activity) {

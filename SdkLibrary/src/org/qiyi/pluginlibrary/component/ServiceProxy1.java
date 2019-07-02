@@ -112,8 +112,9 @@ public class ServiceProxy1 extends Service {
                         + ", clsName: " + targetClassName);
             } catch (Exception e) {
                 ErrorUtil.throwErrorIfNeed(e);
+                String errMsg = "load Service class " + targetClassName + " failed: " + e.getMessage();
                 PluginManager.deliver(this, false, targetPackageName,
-                        ErrorType.ERROR_PLUGIN_LOAD_TARGET_SERVICE);
+                        ErrorType.ERROR_PLUGIN_LOAD_TARGET_SERVICE, errMsg);
                 PluginDebugLog.log(TAG, "load targetService failed, pkgName: " + targetPackageName
                         + ", clsName: " + targetClassName);
                 return null;
@@ -130,8 +131,9 @@ public class ServiceProxy1 extends Service {
                         + ", clsName: " + targetClassName);
             } catch (Exception e) {
                 ErrorUtil.throwErrorIfNeed(e);
+                String errMsg = "call Service " + targetClassName + "#onCreate() failed: " + e.getMessage();
                 PluginManager.deliver(this, false, targetPackageName,
-                        ErrorType.ERROR_PLUGIN_CREATE_TARGET_SERVICE);
+                        ErrorType.ERROR_PLUGIN_CREATE_TARGET_SERVICE, errMsg);
                 PluginDebugLog.log(TAG, "call targetService#onCreate failed, pkgName: " + targetPackageName
                         + ", clsName: " + targetClassName);
                 return null;
@@ -148,13 +150,18 @@ public class ServiceProxy1 extends Service {
         if (paramIntent == null) {
             return null;
         }
-        String targetClassName = IntentUtils.getTargetClass(paramIntent);
-        String targetPackageName = IntentUtils.getTargetPackage(paramIntent);
-        PluginServiceWrapper currentPlugin = loadTargetService(targetPackageName, targetClassName);
+        final String[] pkgAndCls = IntentUtils.parsePkgAndClsFromIntent(paramIntent);
+        String targetPackageName = "";
+        String targetClassName;
+        if (pkgAndCls != null && pkgAndCls.length == 2) {
+            targetPackageName = pkgAndCls[0];
+            targetClassName = pkgAndCls[1];
+            PluginServiceWrapper currentPlugin = loadTargetService(targetPackageName, targetClassName);
 
-        if (currentPlugin != null && currentPlugin.getCurrentService() != null) {
-            currentPlugin.updateBindCounter(1);
-            return currentPlugin.getCurrentService().onBind(paramIntent);
+            if (currentPlugin != null && currentPlugin.getCurrentService() != null) {
+                currentPlugin.updateBindCounter(1);
+                return currentPlugin.getCurrentService().onBind(paramIntent);
+            }
         }
         // 返回fake binder，否则后续的bindService都收不到ServiceConnection回调
         PluginDebugLog.log(TAG, "ServiceProxy1>>>>>onBind(): return fake binder due to currentPlugin is null, pkg: " + targetPackageName);
@@ -238,10 +245,14 @@ public class ServiceProxy1 extends Service {
             return START_NOT_STICKY;
         }
 
-        NotifyCenter.notifyPluginStarted(this, paramIntent);
-
-        String targetClassName = IntentUtils.getTargetClass(paramIntent);
-        String targetPackageName = IntentUtils.getTargetPackage(paramIntent);
+        final String[] pkgAndCls = IntentUtils.parsePkgAndClsFromIntent(paramIntent);
+        String targetPackageName = "";
+        String targetClassName = "";
+        if (pkgAndCls != null && pkgAndCls.length == 2) {
+            targetPackageName = pkgAndCls[0];
+            targetClassName = pkgAndCls[1];
+        }
+        
         PluginServiceWrapper currentPlugin = loadTargetService(targetPackageName, targetClassName);
         PluginDebugLog.log(TAG, "ServiceProxy1>>>>>onStartCommand() currentPlugin: " + currentPlugin);
         if (currentPlugin != null && currentPlugin.getCurrentService() != null) {

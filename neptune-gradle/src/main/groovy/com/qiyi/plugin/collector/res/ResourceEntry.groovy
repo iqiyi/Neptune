@@ -2,8 +2,6 @@ package com.qiyi.plugin.collector.res
 /**
  * Represent a resource entry(e.g. drawable, anim, attr, layout...) in android project,
  * the information in this class will be recorded in the arsc file.
- *
- * @author zhengtao
  */
 class ResourceEntry {
 

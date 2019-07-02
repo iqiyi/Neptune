@@ -21,7 +21,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Parcelable;
@@ -45,6 +44,7 @@ import org.qiyi.pluginlibrary.runtime.PluginManager;
 import org.qiyi.pluginlibrary.utils.ContextUtils;
 import org.qiyi.pluginlibrary.utils.ErrorUtil;
 import org.qiyi.pluginlibrary.utils.PluginDebugLog;
+import org.qiyi.pluginlibrary.utils.PreferUtils;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -58,7 +58,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * 负责安装卸载app，获取安装列表等工作.<br>
  * 提供安装插件的一些方法 功能类似系统中的PackageManager
- *
+ * 该类运行在主进程，给{@link PluginPackageManagerService}和{@link PluginPackageManagerProvider}提供数据
  * @hide
  */
 public class PluginPackageManager {
@@ -104,6 +104,9 @@ public class PluginPackageManager {
     // 已安装插件列表
     private ConcurrentHashMap<String, PluginLiteInfo> mInstalledPlugins =
             new ConcurrentHashMap<>();
+    /* 本地已安装插件数据是否恢复完成 */
+    private boolean mDataRecoveryOver = false;
+
     // 主进程回调的Handler
     private Handler mHandler = new Handler(Looper.getMainLooper());
 
@@ -270,9 +273,6 @@ public class PluginPackageManager {
      */
     private void saveInstallPluginInfos() {
 
-        SharedPreferences sp = mContext.getSharedPreferences(PLUGIN_INSTALL_SP_NAME, Context.MODE_PRIVATE);
-        SharedPreferences.Editor editor = sp.edit();
-
         JSONArray jArray = new JSONArray();
         for (Map.Entry<String, PluginLiteInfo> entry : mInstalledPlugins.entrySet()) {
             String pkgName = entry.getKey();
@@ -288,8 +288,7 @@ public class PluginPackageManager {
                 // ignore
             }
         }
-        editor.putString(PLUGIN_INSTALL_KEY, jArray.toString());
-        editor.apply();
+        PreferUtils.save(mContext, PLUGIN_INSTALL_SP_NAME, PLUGIN_INSTALL_KEY, jArray.toString());
     }
 
     private void startRestoreData() {
@@ -307,8 +306,7 @@ public class PluginPackageManager {
      */
     private void restoreInstallPluginInfos() {
 
-        SharedPreferences sp = mContext.getSharedPreferences(PLUGIN_INSTALL_SP_NAME, Context.MODE_PRIVATE);
-        String content = sp.getString(PLUGIN_INSTALL_KEY, "");
+        String content = PreferUtils.get(mContext, PLUGIN_INSTALL_SP_NAME, PLUGIN_INSTALL_KEY, "");
         if (TextUtils.isEmpty(content)) {
             return;
         }
@@ -333,6 +331,7 @@ public class PluginPackageManager {
                     mInstalledPlugins.put(pkgName, liteInfo);
                 }
             }
+            mDataRecoveryOver = true;
         } catch (JSONException e) {
             // ignore
         }
@@ -587,29 +586,36 @@ public class PluginPackageManager {
      */
     PluginLiteInfo getPackageInfo(String packageName) {
         if (TextUtils.isEmpty(packageName)) {
-            PluginDebugLog.log(TAG, "getPackageInfo return null due to empty package name");
+            PluginDebugLog.runtimeLog(TAG, "getPackageInfo return null due to empty package name");
             return null;
         }
-
+        PluginLiteInfo info;
         if (sPluginInfoProvider != null) {
             if (sPluginInfoProvider.isPackageInstalled(packageName)) {
-                PluginLiteInfo info = sPluginInfoProvider.getPackageInfo(packageName);
+                 info = sPluginInfoProvider.getPackageInfo(packageName);
                 if (null != info) {
                     return info;
                 } else {
-                    PluginDebugLog.log(TAG, "getPackageInfo " +
-                            packageName + " return null due to null package info");
+                    PluginDebugLog.runtimeFormatLog(TAG, "getPackageInfo for %s return null " +
+                            "due to null package info", packageName);
                 }
             } else {
-                PluginDebugLog.log(TAG, "getPackageInfo " +
-                        packageName + " return null due to not installed");
+                PluginDebugLog.runtimeFormatLog(TAG, "getPackageInfo for %s " +
+                        " return null due to not installed", packageName);
             }
         } else {
-            PluginDebugLog.log(TAG, "getPackageInfo " +
-                    packageName + " return null due to sPluginInfoProvider is null");
+            PluginDebugLog.runtimeFormatLog(TAG, "getPackageInfo for %s" +
+                    " return null due to sPluginInfoProvider is null", packageName);
         }
-
-        return mInstalledPlugins.get(packageName);
+        info = mInstalledPlugins.get(packageName);
+        if (info == null && !mDataRecoveryOver) {
+            PluginDebugLog.runtimeFormatLog(TAG, "getPackageInfo for %s from local data is null " +
+                    "due to data recovery not over", packageName);
+            // 获取info为null且本地数据未恢复完成，同步恢复下
+            restoreInstallPluginInfos();
+            info = mInstalledPlugins.get(packageName);
+        }
+        return info;
     }
 
     /**
@@ -805,7 +811,7 @@ public class PluginPackageManager {
      * 获取插件的依赖列表
      */
     List<String> getPluginRefs(String pkgName) {
-        List<String> mRefs = Collections.emptyList();
+        List<String> mRefs = new ArrayList<>();
         if (TextUtils.isEmpty(pkgName)) {
             PluginDebugLog.log(TAG, "getPackageInfo return null due to empty package name");
             return mRefs;
@@ -831,7 +837,7 @@ public class PluginPackageManager {
      * 直接获取已经安装的插件列表(不经过ipc，直接读取sp)
      */
     List<PluginLiteInfo> getInstalledPackagesDirectly() {
-        List<PluginLiteInfo> installPlugins = Collections.emptyList();
+        List<PluginLiteInfo> installPlugins = new ArrayList<>();
         if (sPluginInfoProvider != null) {
             installPlugins = sPluginInfoProvider.getInstalledPackagesDirectly();
         } else {
@@ -860,7 +866,7 @@ public class PluginPackageManager {
      * 直接获取插件依赖
      */
     List<String> getPluginRefsDirectly(String packageName) {
-        List<String> mRefPlugins = Collections.emptyList();
+        List<String> mRefPlugins = new ArrayList<>();
         if (sPluginInfoProvider != null) {
             mRefPlugins = sPluginInfoProvider.getPluginRefsDirectly(packageName);
         } else {

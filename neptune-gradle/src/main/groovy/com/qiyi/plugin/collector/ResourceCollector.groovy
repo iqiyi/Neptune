@@ -19,8 +19,6 @@ import org.gradle.util.VersionNumber
 
 /**
  * Collect all(host+plugin) resources&styleables in the APK and reassign the resource ID
- *
- * @author zhengtao
  */
 class ResourceCollector {
 

@@ -87,10 +87,12 @@ class DexProcessor {
         ClassWriter cw = new ClassWriter(cr, 0)
         ClassVisitor cv = new ClassVisitor(Opcodes.ASM4, cw) {
             private String targetOwner
+            private String superName
 
             @Override
             void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
                 //println "class name => ${name}, superName => ${superName}, interfaces => ${interfaces.toString()}"
+                this.superName = superName
                 String clsName = name.replace("/", ".")
                 String superClsName = superName.replace("/", ".")
                 if (clsName in ReplaceRules.values()) {
@@ -115,15 +117,15 @@ class DexProcessor {
             MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
                 MethodVisitor orig = super.visitMethod(access, name, desc, signature, exceptions)
                 if (targetOwner == null) {
-                    // We not replace parent Activity
+                    // We do not replace parent Activity
                     return orig
                 }
 
                 return new MethodVisitor(Opcodes.ASM4, orig) {
                     @Override
                     void visitMethodInsn(int opcode, String owner, String methodName, String methodDesc, boolean itf) {
-                        if (opcode == Opcodes.INVOKESPECIAL) {
-                            // Replace super call
+                        if (opcode == Opcodes.INVOKESPECIAL && owner == superName) {
+                            // invokespecial也可以调用自己的private方法
                             owner = targetOwner
                         }
 

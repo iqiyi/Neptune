@@ -261,6 +261,7 @@
   <public type="attr" name="theme" id="0x7f0100fc" />
   <public type="attr" name="backgroundTint" id="0x7f0100fd" />
   <public type="attr" name="backgroundTintMode" id="0x7f0100fe" />
+  <public type="attr" name="coordinatorLayoutStyle" id="0x7f0100ff" />
   <public type="attr" name="layoutManager" id="0x7f010100" />
   <public type="attr" name="spanCount" id="0x7f010101" />
   <public type="attr" name="reverseLayout" id="0x7f010102" />
@@ -270,6 +271,16 @@
   <public type="attr" name="fastScrollVerticalTrackDrawable" id="0x7f010106" />
   <public type="attr" name="fastScrollHorizontalThumbDrawable" id="0x7f010107" />
   <public type="attr" name="fastScrollHorizontalTrackDrawable" id="0x7f010108" />
+  <public type="attr" name="buttonIconDimen" id="0x7f010109" />
+  <public type="attr" name="viewInflaterClass" id="0x7f01010a" />
+  <public type="attr" name="keylines" id="0x7f01010b" />
+  <public type="attr" name="statusBarBackground" id="0x7f01010c" />
+  <public type="attr" name="layout_behavior" id="0x7f01010d" />
+  <public type="attr" name="layout_anchor" id="0x7f01010e" />
+  <public type="attr" name="layout_keyline" id="0x7f01010f" />
+  <public type="attr" name="layout_anchorGravity" id="0x7f010110" />
+  <public type="attr" name="layout_insetEdge" id="0x7f010111" />
+  <public type="attr" name="layout_dodgeInsetEdges" id="0x7f010112" />
   <public type="attr" name="fadeDuration" id="0x7f010120" />
   <public type="attr" name="backgroundImage" id="0x7f010121" />
   <public type="attr" name="actualImageScaleType" id="0x7f010122" />
@@ -297,6 +308,21 @@
   <public type="attr" name="viewAspectRatio" id="0x7f010138" />
   <public type="attr" name="actualImageResource" id="0x7f010139" />
   <public type="attr" name="actualImageUri" id="0x7f01013a" />
+  <public type="attr" name="actualPackageName" id="0x7f01013b" />
+  <public type="attr" name="roundTopStart" id="0x7f01013c" />
+  <public type="attr" name="roundTopEnd" id="0x7f01013d" />
+  <public type="attr" name="roundBottomStart" id="0x7f01013e" />
+  <public type="attr" name="roundBottomEnd" id="0x7f01013f" />
+  <public type="attr" name="lottie_fileName" id="0x7f010140" />
+  <public type="attr" name="lottie_autoPlay" id="0x7f010141" />
+  <public type="attr" name="lottie_loop" id="0x7f010142" />
+  <public type="attr" name="lottie_imageAssetsFolder" id="0x7f010143" />
+  <public type="attr" name="lottie_progress" id="0x7f010144" />
+  <public type="attr" name="lottie_enableMergePathsForKitKatAndAbove" id="0x7f010145" />
+  <public type="attr" name="lottie_cacheStrategy" id="0x7f010146" />
+  <public type="attr" name="lottie_colorFilter" id="0x7f010147" />
+  <public type="attr" name="lottie_scale" id="0x7f010148" />
+  <public type="attr" name="lottie_rawRes" id="0x7f010149" />
 
   <public type="drawable" name="abc_ab_share_pack_mtrl_alpha" id="0x7f020000" />
   <public type="drawable" name="abc_action_bar_item_background_material" id="0x7f020001" />
@@ -395,9 +421,11 @@
   <public type="drawable" name="tooltip_frame_light" id="0x7f02005e" />
   <public type="drawable" name="notification_template_icon_bg" id="0x7f02005f" />
   <public type="drawable" name="notification_template_icon_low_bg" id="0x7f020060" />
+  <public type="drawable" name="default_toast_bg" id="0x7f020070" />
 
   <public type="layout" name="abc_action_bar_title_item" id="0x7f030000" />
   <public type="layout" name="abc_action_bar_up_container" id="0x7f030001" />
+  <public type="layout" name="abc_tooltip" id="0x7f030002" />
   <public type="layout" name="abc_action_menu_item_layout" id="0x7f030003" />
   <public type="layout" name="abc_action_menu_layout" id="0x7f030004" />
   <public type="layout" name="abc_action_mode_bar" id="0x7f030005" />
@@ -441,6 +469,7 @@
   <public type="layout" name="select_dialog_multichoice_material" id="0x7f03002b" />
   <public type="layout" name="select_dialog_singlechoice_material" id="0x7f03002c" />
   <public type="layout" name="support_simple_spinner_dropdown_item" id="0x7f03002d" />
+  <public type="layout" name="toast_tips_default" id="0x7f030050" />
 
   <public type="anim" name="abc_fade_in" id="0x7f040000" />
   <public type="anim" name="abc_fade_out" id="0x7f040001" />
@@ -452,6 +481,8 @@
   <public type="anim" name="abc_slide_in_top" id="0x7f040007" />
   <public type="anim" name="abc_slide_out_bottom" id="0x7f040008" />
   <public type="anim" name="abc_slide_out_top" id="0x7f040009" />
+  <public type="anim" name="abc_tooltip_enter" id="0x7f04000a" />
+  <public type="anim" name="abc_tooltip_exit" id="0x7f04000b" />
 
   <public type="string" name="abc_action_bar_home_description" id="0x7f050000" />
   <public type="string" name="abc_action_bar_up_description" id="0x7f050003" />
@@ -596,6 +627,7 @@
   <public type="dimen" name="tooltip_vertical_padding" id="0x7f06006c" />
   <public type="dimen" name="tooltip_y_offset_non_touch" id="0x7f06006d" />
   <public type="dimen" name="tooltip_y_offset_touch" id="0x7f06006e" />
+  <public type="dimen" name="abc_alert_dialog_button_dimen" id="0x7f06006f" />
   <public type="dimen" name="fastscroll_default_thickness" id="0x7f060070" />
   <public type="dimen" name="fastscroll_margin" id="0x7f060071" />
   <public type="dimen" name="fastscroll_minimum_range" id="0x7f060072" />
@@ -628,6 +660,7 @@
   <public type="style" name="Base.Theme.AppCompat.Light.Dialog.MinWidth" id="0x7f070016" />
   <public type="style" name="Base.ThemeOverlay.AppCompat.Dialog" id="0x7f070017" />
   <public type="style" name="Base.ThemeOverlay.AppCompat.Dialog.Alert" id="0x7f070018" />
+  <public type="style" name="Widget.Support.CoordinatorLayout" id="0x7f070019" />
   <public type="style" name="Base.Widget.AppCompat.ProgressBar" id="0x7f07001c" />
   <public type="style" name="Base.Widget.AppCompat.ProgressBar.Horizontal" id="0x7f07001d" />
   <public type="style" name="Platform.AppCompat" id="0x7f07001e" />
@@ -1161,6 +1194,30 @@
   <public type="id" name="end_padder" id="0x7f0a0077" />
   <public type="id" name="message" id="0x7f0a0078" />
   <public type="id" name="item_touch_helper_previous_elevation" id="0x7f0a0079" />
+  <public type="id" name="tag_transition_group" id="0x7f0a007a" />
+  <public type="id" name="center" id="0x7f0a007b" />
+  <public type="id" name="center_horizontal" id="0x7f0a007c" />
+  <public type="id" name="center_vertical" id="0x7f0a007d" />
+  <public type="id" name="clip_horizontal" id="0x7f0a007e" />
+  <public type="id" name="clip_vertical" id="0x7f0a007f" />
+  <public type="id" name="lottie_layer_name" id="0x7f0a0080" />
+  <public type="id" name="fill" id="0x7f0a0081" />
+  <public type="id" name="fill_horizontal" id="0x7f0a0082" />
+  <public type="id" name="fill_vertical" id="0x7f0a0083" />
+  <public type="id" name="left" id="0x7f0a0084" />
+  <public type="id" name="right" id="0x7f0a0085" />
+  <public type="id" name="start" id="0x7f0a0086" />
+  <public type="id" name="all" id="0x7f0a0087" />
+  <public type="id" name="centerCrop" id="0x7f0a0088" />
+  <public type="id" name="centerInside" id="0x7f0a0089" />
+  <public type="id" name="fitBottomStart" id="0x7f0a008a" />
+  <public type="id" name="fitCenter" id="0x7f0a008b" />
+  <public type="id" name="fitEnd" id="0x7f0a008c" />
+  <public type="id" name="fitStart" id="0x7f0a008d" />
+  <public type="id" name="fitXY" id="0x7f0a008e" />
+  <public type="id" name="focusCrop" id="0x7f0a008f" />
+  <public type="id" name="strong" id="0x7f0a0090" />
+  <public type="id" name="weak" id="0x7f0a0091" />
 
   <public type="integer" name="abc_config_activityDefaultDur" id="0x7f0b0000" />
   <public type="integer" name="abc_config_activityShortDur" id="0x7f0b0001" />
@@ -1171,92 +1228,148 @@
   <!-- PRIVATE SECTION.  These resources have not been declared public.
        You can make them public my moving these lines into a file in res/values. -->
 
-  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\debug\values\values.xml:3 -->
-  <public type="attr" name="coordinatorLayoutStyle" id="0x7f0100ff" />
-  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\debug\values\values.xml:95 -->
-  <public type="attr" name="buttonIconDimen" id="0x7f010109" />
-  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\debug\values\values.xml:133 -->
-  <public type="attr" name="viewInflaterClass" id="0x7f01010a" />
-  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\debug\values\values.xml:150 -->
-  <public type="attr" name="keylines" id="0x7f01010b" />
-  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\debug\values\values.xml:150 -->
-  <public type="attr" name="statusBarBackground" id="0x7f01010c" />
-  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\debug\values\values.xml:151 -->
-  <public type="attr" name="layout_behavior" id="0x7f01010d" />
-  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\debug\values\values.xml:151 -->
-  <public type="attr" name="layout_anchor" id="0x7f01010e" />
-  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\debug\values\values.xml:151 -->
-  <public type="attr" name="layout_keyline" id="0x7f01010f" />
-  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\debug\values\values.xml:151 -->
-  <public type="attr" name="layout_anchorGravity" id="0x7f010110" />
-  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\debug\values\values.xml:180 -->
-  <public type="attr" name="layout_insetEdge" id="0x7f010111" />
-  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\debug\values\values.xml:195 -->
-  <public type="attr" name="layout_dodgeInsetEdges" id="0x7f010112" />
-  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\debug\values\values.xml:282 -->
-  <public type="attr" name="roundTopStart" id="0x7f010113" />
-  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\debug\values\values.xml:282 -->
-  <public type="attr" name="roundTopEnd" id="0x7f010114" />
-  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\debug\values\values.xml:282 -->
-  <public type="attr" name="roundBottomStart" id="0x7f010115" />
-  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\debug\values\values.xml:282 -->
-  <public type="attr" name="roundBottomEnd" id="0x7f010116" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:3 -->
+  <public type="attr" name="barrierAllowsGoneWidgets" id="0x7f010113" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:4 -->
+  <public type="attr" name="barrierDirection" id="0x7f010114" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:12 -->
+  <public type="attr" name="chainUseRtl" id="0x7f010115" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:13 -->
+  <public type="attr" name="constraintSet" id="0x7f010116" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:14 -->
+  <public type="attr" name="constraint_referenced_ids" id="0x7f010117" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:15 -->
+  <public type="attr" name="content" id="0x7f010118" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:18 -->
+  <public type="attr" name="emptyVisibility" id="0x7f010119" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:24 -->
+  <public type="attr" name="layout_constrainedHeight" id="0x7f01011a" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:25 -->
+  <public type="attr" name="layout_constrainedWidth" id="0x7f01011b" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:26 -->
+  <public type="attr" name="layout_constraintBaseline_creator" id="0x7f01011c" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:27 -->
+  <public type="attr" name="layout_constraintBaseline_toBaselineOf" id="0x7f01011d" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:30 -->
+  <public type="attr" name="layout_constraintBottom_creator" id="0x7f01011e" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:31 -->
+  <public type="attr" name="layout_constraintBottom_toBottomOf" id="0x7f01011f" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:34 -->
+  <public type="attr" name="layout_constraintBottom_toTopOf" id="0x7f01014a" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:37 -->
+  <public type="attr" name="layout_constraintCircle" id="0x7f01014b" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:38 -->
+  <public type="attr" name="layout_constraintCircleAngle" id="0x7f01014c" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:39 -->
+  <public type="attr" name="layout_constraintCircleRadius" id="0x7f01014d" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:40 -->
+  <public type="attr" name="layout_constraintDimensionRatio" id="0x7f01014e" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:41 -->
+  <public type="attr" name="layout_constraintEnd_toEndOf" id="0x7f01014f" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:44 -->
+  <public type="attr" name="layout_constraintEnd_toStartOf" id="0x7f010150" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:47 -->
+  <public type="attr" name="layout_constraintGuide_begin" id="0x7f010151" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:48 -->
+  <public type="attr" name="layout_constraintGuide_end" id="0x7f010152" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:49 -->
+  <public type="attr" name="layout_constraintGuide_percent" id="0x7f010153" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:50 -->
+  <public type="attr" name="layout_constraintHeight_default" id="0x7f010154" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:55 -->
+  <public type="attr" name="layout_constraintHeight_max" id="0x7f010155" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:58 -->
+  <public type="attr" name="layout_constraintHeight_min" id="0x7f010156" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:61 -->
+  <public type="attr" name="layout_constraintHeight_percent" id="0x7f010157" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:62 -->
+  <public type="attr" name="layout_constraintHorizontal_bias" id="0x7f010158" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:63 -->
+  <public type="attr" name="layout_constraintHorizontal_chainStyle" id="0x7f010159" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:68 -->
+  <public type="attr" name="layout_constraintHorizontal_weight" id="0x7f01015a" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:69 -->
+  <public type="attr" name="layout_constraintLeft_creator" id="0x7f01015b" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:70 -->
+  <public type="attr" name="layout_constraintLeft_toLeftOf" id="0x7f01015c" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:73 -->
+  <public type="attr" name="layout_constraintLeft_toRightOf" id="0x7f01015d" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:76 -->
+  <public type="attr" name="layout_constraintRight_creator" id="0x7f01015e" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:77 -->
+  <public type="attr" name="layout_constraintRight_toLeftOf" id="0x7f01015f" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:80 -->
+  <public type="attr" name="layout_constraintRight_toRightOf" id="0x7f010160" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:83 -->
+  <public type="attr" name="layout_constraintStart_toEndOf" id="0x7f010161" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:86 -->
+  <public type="attr" name="layout_constraintStart_toStartOf" id="0x7f010162" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:89 -->
+  <public type="attr" name="layout_constraintTop_creator" id="0x7f010163" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:90 -->
+  <public type="attr" name="layout_constraintTop_toBottomOf" id="0x7f010164" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:93 -->
+  <public type="attr" name="layout_constraintTop_toTopOf" id="0x7f010165" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:96 -->
+  <public type="attr" name="layout_constraintVertical_bias" id="0x7f010166" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:97 -->
+  <public type="attr" name="layout_constraintVertical_chainStyle" id="0x7f010167" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:102 -->
+  <public type="attr" name="layout_constraintVertical_weight" id="0x7f010168" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:103 -->
+  <public type="attr" name="layout_constraintWidth_default" id="0x7f010169" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:108 -->
+  <public type="attr" name="layout_constraintWidth_max" id="0x7f01016a" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:111 -->
+  <public type="attr" name="layout_constraintWidth_min" id="0x7f01016b" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:114 -->
+  <public type="attr" name="layout_constraintWidth_percent" id="0x7f01016c" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:115 -->
+  <public type="attr" name="layout_editor_absoluteX" id="0x7f01016d" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:116 -->
+  <public type="attr" name="layout_editor_absoluteY" id="0x7f01016e" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:117 -->
+  <public type="attr" name="layout_goneMarginBottom" id="0x7f01016f" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:118 -->
+  <public type="attr" name="layout_goneMarginEnd" id="0x7f010170" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:119 -->
+  <public type="attr" name="layout_goneMarginLeft" id="0x7f010171" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:120 -->
+  <public type="attr" name="layout_goneMarginRight" id="0x7f010172" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:121 -->
+  <public type="attr" name="layout_goneMarginStart" id="0x7f010173" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:122 -->
+  <public type="attr" name="layout_goneMarginTop" id="0x7f010174" />
+  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\release\values\values.xml:123 -->
+  <public type="attr" name="layout_optimizationLevel" id="0x7f010175" />
 
-  <!-- Declared at res\layout\abc_tooltip.xml:0 -->
-  <public type="layout" name="abc_tooltip" id="0x7f030002" />
-
-  <!-- Declared at res\anim\abc_tooltip_enter.xml:0 -->
-  <public type="anim" name="abc_tooltip_enter" id="0x7f04000a" />
-  <!-- Declared at res\anim\abc_tooltip_exit.xml:0 -->
-  <public type="anim" name="abc_tooltip_exit" id="0x7f04000b" />
-
-  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\debug\values\values.xml:406 -->
-  <public type="dimen" name="abc_alert_dialog_button_dimen" id="0x7f06006f" />
-
-  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\debug\values\values.xml:2122 -->
-  <public type="style" name="Widget.Support.CoordinatorLayout" id="0x7f070019" />
-
-  <!-- Declared at C:\workspace\Neptune\samples\AndroidSupport\app\build\intermediates\res\merged\debug\values\values.xml:615 -->
-  <public type="id" name="tag_transition_group" id="0x7f0a007a" />
   <!-- Declared at <generated>:0 -->
-  <public type="id" name="center" id="0x7f0a007b" />
+  <public type="id" name="gone" id="0x7f0a0092" />
   <!-- Declared at <generated>:0 -->
-  <public type="id" name="center_horizontal" id="0x7f0a007c" />
+  <public type="id" name="invisible" id="0x7f0a0093" />
   <!-- Declared at <generated>:0 -->
-  <public type="id" name="center_vertical" id="0x7f0a007d" />
+  <public type="id" name="parent" id="0x7f0a0094" />
   <!-- Declared at <generated>:0 -->
-  <public type="id" name="clip_horizontal" id="0x7f0a007e" />
+  <public type="id" name="percent" id="0x7f0a0095" />
   <!-- Declared at <generated>:0 -->
-  <public type="id" name="clip_vertical" id="0x7f0a007f" />
+  <public type="id" name="spread" id="0x7f0a0096" />
   <!-- Declared at <generated>:0 -->
-  <public type="id" name="fill" id="0x7f0a0080" />
+  <public type="id" name="wrap" id="0x7f0a0097" />
   <!-- Declared at <generated>:0 -->
-  <public type="id" name="fill_horizontal" id="0x7f0a0081" />
+  <public type="id" name="packed" id="0x7f0a0098" />
   <!-- Declared at <generated>:0 -->
-  <public type="id" name="fill_vertical" id="0x7f0a0082" />
+  <public type="id" name="spread_inside" id="0x7f0a0099" />
   <!-- Declared at <generated>:0 -->
-  <public type="id" name="left" id="0x7f0a0083" />
+  <public type="id" name="barrier" id="0x7f0a009a" />
   <!-- Declared at <generated>:0 -->
-  <public type="id" name="right" id="0x7f0a0084" />
+  <public type="id" name="chains" id="0x7f0a009b" />
   <!-- Declared at <generated>:0 -->
-  <public type="id" name="start" id="0x7f0a0085" />
+  <public type="id" name="dimensions" id="0x7f0a009c" />
   <!-- Declared at <generated>:0 -->
-  <public type="id" name="all" id="0x7f0a0086" />
+  <public type="id" name="direct" id="0x7f0a009d" />
   <!-- Declared at <generated>:0 -->
-  <public type="id" name="centerCrop" id="0x7f0a0087" />
+  <public type="id" name="groups" id="0x7f0a009e" />
   <!-- Declared at <generated>:0 -->
-  <public type="id" name="centerInside" id="0x7f0a0088" />
-  <!-- Declared at <generated>:0 -->
-  <public type="id" name="fitBottomStart" id="0x7f0a0089" />
-  <!-- Declared at <generated>:0 -->
-  <public type="id" name="fitCenter" id="0x7f0a008a" />
-  <!-- Declared at <generated>:0 -->
-  <public type="id" name="fitEnd" id="0x7f0a008b" />
-  <!-- Declared at <generated>:0 -->
-  <public type="id" name="fitStart" id="0x7f0a008c" />
-  <!-- Declared at <generated>:0 -->
-  <public type="id" name="fitXY" id="0x7f0a008d" />
-  <!-- Declared at <generated>:0 -->
-  <public type="id" name="focusCrop" id="0x7f0a008e" />
+  <public type="id" name="standard" id="0x7f0a009f" />
 
 </resources>

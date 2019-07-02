@@ -31,6 +31,7 @@ import org.qiyi.pluginlibrary.plugin.InterfaceToGetHost;
 import org.qiyi.pluginlibrary.runtime.PluginLoadedApk;
 import org.qiyi.pluginlibrary.runtime.PluginManager;
 import org.qiyi.pluginlibrary.utils.IntentUtils;
+import org.qiyi.pluginlibrary.utils.LayoutInflaterCompat;
 import org.qiyi.pluginlibrary.utils.PluginDebugLog;
 import org.qiyi.pluginlibrary.utils.ReflectionUtils;
 import org.qiyi.pluginlibrary.utils.ResourcesToolForPlugin;
@@ -41,6 +42,9 @@ import org.qiyi.pluginlibrary.utils.ResourcesToolForPlugin;
  */
 class PluginActivityDelegate implements InterfaceToGetHost {
     private static final String TAG = "PluginActivityDelegate";
+
+    private static final String FRAGMENTS_TAG = "android:fragments";
+    private static final String SUPPORT_FRAGMENTS_TAG = "android:support:fragments";
 
     private PluginLoadedApk mPlugin;
 
@@ -89,15 +93,11 @@ class PluginActivityDelegate implements InterfaceToGetHost {
         intent.setExtrasClassLoader(cl);
         IntentUtils.resetAction(intent); //恢复Intent的Action
 
-        // 对FragmentActivity做特殊处理
+        // 对FragmentActivity做特殊处理，不保留Fragment的恢复数据
         if (savedInstanceState != null) {
-            //
             savedInstanceState.setClassLoader(cl);
-            try {
-                savedInstanceState.remove("android:support:fragments");
-            } catch (Throwable tr) {
-                tr.printStackTrace();
-            }
+            savedInstanceState.remove(SUPPORT_FRAGMENTS_TAG);
+            savedInstanceState.remove(FRAGMENTS_TAG);
         }
         // 替换Application，不然插件内无法监听LifeCycle
         if (mPlugin != null) {
@@ -113,7 +113,8 @@ class PluginActivityDelegate implements InterfaceToGetHost {
             ReflectionUtils.on(activity, ContextWrapper.class).set("mBase", mBase);
             ReflectionUtils.on(activity, ContextThemeWrapper.class).setNoException("mBase", mBase);
         }
-
+        // 给LayoutInflater设置privateFactory
+        LayoutInflaterCompat.setPrivateFactory(activity.getLayoutInflater());
         // 修改Activity的ActivityInfo和主题信息
         PluginActivityControl.changeActivityInfo(activity, activity.getClass().getName(), mPlugin);
     }

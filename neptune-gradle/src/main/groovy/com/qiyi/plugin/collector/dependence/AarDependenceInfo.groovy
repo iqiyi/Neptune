@@ -14,8 +14,6 @@ import org.gradle.api.Project
 
 /**
  * Represents a AAR dependence from Maven repository or Android library module
- *
- * @author zhengtao
  */
 class AarDependenceInfo extends DependenceInfo {
 
@@ -137,7 +135,7 @@ class AarDependenceInfo extends DependenceInfo {
             for (String buildType : buildTypes) {
                 File buildTypeDir
                 if (name.startsWith("library")
-                        || Utils.isAgpAbove34()) {
+                    || Utils.isAgpAbove34()) {
                     // 3.4以上没有processXXXMainfest目录
                     buildTypeDir = FileUtils.join(middleDir, buildType)
                 } else {
@@ -201,7 +199,8 @@ class AarDependenceInfo extends DependenceInfo {
         Project subProject = project.rootProject.findProject(projectName)
         if (subProject != null) {
             File interDir = FileUtils.join(subProject.buildDir, "intermediates")
-            String[] baseDirs = ["bundles", "symbols"]  // 3.0.0在bundles目录，3.0.1+在symbols目录
+            // 3.0.0在bundles目录，3.0.1+在symbols目录
+            String[] baseDirs = ["bundles", "symbols"]
             for (String name : baseDirs) {
                 File middleDir = FileUtils.join(interDir, name)
                 List<String> buildTypes = new ArrayList<>()

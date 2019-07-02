@@ -79,7 +79,7 @@ public class PluginActivityControl implements PluginActivityCallback {
 
         // 使反射工具类指向相应的对象
         mProxyRef = ReflectionUtils.on(proxy);
-        mPluginRef = ReflectionUtils.on(plugin);
+        mPluginRef = ReflectionUtils.on(plugin, Activity.class);
     }
 
     /**
@@ -146,20 +146,10 @@ public class PluginActivityControl implements PluginActivityCallback {
 
         if (origActInfo != null) {
             // handle ActionBar title
-            if (origActInfo.nonLocalizedLabel != null) {
-                activity.setTitle(origActInfo.nonLocalizedLabel);
-            } else if (origActInfo.labelRes != 0) {
-                activity.setTitle(origActInfo.labelRes);
-            } else if (origActInfo.applicationInfo != null) {
-                if (origActInfo.applicationInfo.nonLocalizedLabel != null) {
-                    activity.setTitle(origActInfo.applicationInfo.nonLocalizedLabel);
-                } else if (origActInfo.applicationInfo.labelRes != 0) {
-                    activity.setTitle(origActInfo.applicationInfo.labelRes);
-                } else {
-                    activity.setTitle(origActInfo.applicationInfo.name);
-                }
-            } else {
-                activity.setTitle(origActInfo.name);
+            try {
+                setActivityTitle(activity, origActInfo);
+            } catch (Exception e) {
+                ErrorUtil.throwErrorIfNeed(e);
             }
         }
 
@@ -171,6 +161,27 @@ public class PluginActivityControl implements PluginActivityCallback {
             PluginDebugLog.log(TAG, "changeActivityInfo->changeTheme: " + " theme = " +
                     actInfo.getThemeResource() + ", icon = " + actInfo.getIconResource()
                     + ", logo = " + actInfo.logo + ", labelRes=" + actInfo.labelRes);
+        }
+    }
+
+    /**
+     * 设置更新Activity的标题
+     */
+    private static void setActivityTitle(Activity activity, ActivityInfo actInfo) {
+        if (actInfo.nonLocalizedLabel != null) {
+            activity.setTitle(actInfo.nonLocalizedLabel);
+        } else if (actInfo.labelRes != 0) {
+            activity.setTitle(actInfo.labelRes);
+        } else if (actInfo.applicationInfo != null) {
+            if (actInfo.applicationInfo.nonLocalizedLabel != null) {
+                activity.setTitle(actInfo.applicationInfo.nonLocalizedLabel);
+            } else if (actInfo.applicationInfo.labelRes != 0) {
+                activity.setTitle(actInfo.applicationInfo.labelRes);
+            } else {
+                activity.setTitle(actInfo.applicationInfo.name);
+            }
+        } else {
+            activity.setTitle(actInfo.name);
         }
     }
 
@@ -221,7 +232,8 @@ public class PluginActivityControl implements PluginActivityCallback {
 
             return true;
         } catch (ReflectException e) {
-            PluginManager.deliver(mProxy, false, packageName, ErrorType.ERROR_PLUGIN_ACTIVITY_ATTACH_BASE);
+            PluginManager.deliver(mProxy, false, packageName, ErrorType.ERROR_PLUGIN_ACTIVITY_ATTACH_BASE,
+                    "call Activity#attach failed, " + e.getMessage());
             ErrorUtil.throwErrorIfNeed(e);
         }
         return false;
@@ -571,7 +583,12 @@ public class PluginActivityControl implements PluginActivityCallback {
     @Override
     public void callOnStart() {
         if (null != getPluginRef()) {
-            getPluginRef().call("performStart", sMethods, null);
+            if (VersionUtils.hasPie() && mHostInstr != null) {
+                // 9.0上performStart dark名单
+                mHostInstr.callActivityOnStart(mPlugin);
+            } else {
+                getPluginRef().call("performStart", sMethods, null);
+            }
         }
     }
 
@@ -583,7 +600,12 @@ public class PluginActivityControl implements PluginActivityCallback {
     @Override
     public void callOnResume() {
         if (null != getPluginRef()) {
-            getPluginRef().call("performResume", sMethods, null);
+            if (VersionUtils.hasPie() && mHostInstr != null) {
+                // 9.0上performResume dark名单
+                mHostInstr.callActivityOnResume(mPlugin);
+            } else {
+                getPluginRef().call("performResume", sMethods, null);
+            }
         }
     }
 
@@ -607,9 +629,12 @@ public class PluginActivityControl implements PluginActivityCallback {
     @Override
     public void callOnStop() {
         if (null != getPluginRef()) {
-            if (VersionUtils.hasNougat()) {
-                // 此处强制写false可能带来一些风险，暂时没有其他的方法处理
-                getPluginRef().call("performStop", sMethods, null, false);
+            if (VersionUtils.hasPie() && mHostInstr != null) {
+                // 9.0上performStop dark名单
+                mHostInstr.callActivityOnStop(mPlugin);
+            } else if (VersionUtils.hasNougat()) {
+                // ActivityThread源码里写死了false
+                getPluginRef().call("performStop", sMethods, new Class[]{boolean.class}, false);
             } else {
                 getPluginRef().call("performStop", sMethods, null);
             }
@@ -624,7 +649,12 @@ public class PluginActivityControl implements PluginActivityCallback {
     @Override
     public void callOnRestart() {
         if (null != getPluginRef()) {
-            getPluginRef().call("performRestart", sMethods, null);
+            if (VersionUtils.hasPie() && mHostInstr != null) {
+                // 9.0上performRestart dark名单
+                mHostInstr.callActivityOnRestart(mPlugin);
+            } else {
+                getPluginRef().call("performRestart", sMethods, null);
+            }
         }
     }
 
@@ -655,12 +685,12 @@ public class PluginActivityControl implements PluginActivityCallback {
     /**
      * 执行插件的onStop方法
      *
-     * @see android.app.Activity#onStop()
+     * @see android.app.Activity#onPause()
      */
     @Override
     public void callOnPause() {
-        if (null != getPluginRef()) {
-            getPluginRef().call("performPause", sMethods, null);
+        if (mHostInstr != null) {
+            mHostInstr.callActivityOnPause(mPlugin);
         }
     }
 
@@ -691,8 +721,8 @@ public class PluginActivityControl implements PluginActivityCallback {
 
     /**
      * 执行插件的onPictureInPictureModeChanged方法
-     * @param isInPictureInPictureMode
-     * @param newConfig
+     *
+     * @see android.app.Activity#onPictureInPictureModeChanged(boolean, Configuration)
      */
     @Override
     public void callOnPictureInPictureModeChanged(boolean isInPictureInPictureMode, Configuration newConfig) {

@@ -17,13 +17,8 @@
  */
 package org.qiyi.pluginlibrary.utils;
 
-import android.annotation.Nullable;
-import android.app.ActivityManager;
 import android.content.Context;
-import android.content.SharedPreferences;
-import android.content.pm.PackageInfo;
 import android.os.Build;
-import android.os.Process;
 import android.text.TextUtils;
 
 import org.qiyi.pluginlibrary.install.DexOptimizer;
@@ -31,19 +26,15 @@ import org.qiyi.pluginlibrary.install.PluginInstaller;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
 import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
-import java.lang.reflect.Method;
 import java.util.Enumeration;
-import java.util.Locale;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
@@ -54,9 +45,7 @@ import dalvik.system.DexClassLoader;
 
 public final class FileUtils {
     private static final String TAG = PluginDebugLog.TAG;
-    /**
-     * apk 中 lib 目录的前缀标示。比如 lib/x86/libshare_v2.so
-     */
+    /* apk 中 lib 目录的前缀标示。比如 lib/armeabi/libimagepipeline.so */
     private static final String APK_LIB_DIR_PREFIX = "lib/";
     /* libs目录so后缀 */
     private static final String APK_LIB_SUFFIX = ".so";
@@ -68,12 +57,6 @@ public final class FileUtils {
     private static final int BUFFER_SIZE = 8096;
     /* sp name of plugin version with so*/
     private static final String SO_INFO_SP = "plugin_so_version";
-
-    /* 当前手机指令集 */
-    private static String currentInstructionSet = null;
-    /* 当前进程名 */
-    private static String currentProcessName = null;
-
 
     /**
      * utility class private constructor
@@ -149,46 +132,34 @@ public final class FileUtils {
             closeQuietly(bis);
             closeQuietly(inputStream);
         }
-
         return result;
     }
 
-    /**
-     * 安装拷贝apk中的so库
-     */
-    public static boolean installNativeLibrary(Context context, String apkFilePath, String libDir) {
-        return installNativeLibrary(context, apkFilePath, null, libDir);
-    }
 
     /**
      * 拷贝so库到插件libs目录
      */
-    public static boolean installNativeLibrary(Context context, String apkFilePath, PackageInfo packageInfo, String libDir) {
+    public static boolean installNativeLibrary(Context context, String apkFilePath, String libDir) {
         PluginDebugLog.installFormatLog(TAG, "installNativeLibrary apkFilePath: %s, libDir: %s", apkFilePath, libDir);
         long startTime = System.currentTimeMillis();
         ZipFile zipFile = null;
         try {
             zipFile = new ZipFile(apkFilePath);
-            String[] cpuAbis;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                cpuAbis = Build.SUPPORTED_ABIS;
-            } else {
-                cpuAbis = new String[]{Build.CPU_ABI, Build.CPU_ABI2};
-            }
-
             File nativeLibDir = new File(libDir);
             if (!nativeLibDir.exists()) {
                 nativeLibDir.mkdirs();
             }
 
-            for (String cpuArch : cpuAbis) {
-                if (findAndCopyNativeLib(context, zipFile, cpuArch,
-                        packageInfo, libDir)) {
-                    return true;
-                } else {
-                    PluginDebugLog.installFormatLog(TAG, "can't install native lib of %s as no matched ABI %s",
-                            apkFilePath, cpuArch);
-                }
+            String primaryCpuAbi = CpuAbiUtils.getPrimaryCpuAbi(context);
+            if (findAndCopyNativeLib(context, zipFile, primaryCpuAbi, libDir)) {
+                PluginDebugLog.installFormatLog(TAG, "installNativeLibrary copy %s libraries success", primaryCpuAbi);
+                return true;
+            }
+
+            String compactAbi = CpuAbiUtils.getCompatCpuAbi(primaryCpuAbi);
+            if (!TextUtils.isEmpty(compactAbi) && findAndCopyNativeLib(context, zipFile, compactAbi, libDir)) {
+                PluginDebugLog.installFormatLog(TAG, "installNativeLibrary copy compact %s library success", compactAbi);
+                return true;
             }
         } catch (IOException e) {
             /* ignore */
@@ -197,15 +168,13 @@ public final class FileUtils {
             PluginDebugLog.runtimeFormatLog(TAG, "installNativeLibrary Done! cost %s ms",
                     (System.currentTimeMillis() - startTime));
         }
-
         return false;
     }
 
     /**
-     * 拷贝so库，需要判断so库是否已经解压过
+     * 拷贝so库，每次新安装插件覆盖更新原来的so库
      */
-    private static boolean findAndCopyNativeLib(Context context, ZipFile apk, String cpuArch,
-                                                @Nullable PackageInfo packageInfo, String libDir) {
+    private static boolean findAndCopyNativeLib(Context context, ZipFile apk, String cpuArch, String libDir) {
         PluginDebugLog.installFormatLog(TAG, "findAndCopyNativeLib start to extract native lib for ABI: %s", cpuArch);
         boolean installResult = false;
         Enumeration<? extends ZipEntry> entries = apk.entries();
@@ -226,27 +195,12 @@ public final class FileUtils {
                 File libFile = new File(libDir, libName);
 
                 if (libFile.exists()) {
-                    PluginDebugLog.installFormatLog(TAG, "soFileName: %s already exist", libName);
-                    if (packageInfo == null) {
-                        continue;
-                    }
-                    String key = packageInfo.packageName + "_" + libName;
-                    int versionCode = getSoVersion(context, key);
-                    if (versionCode == packageInfo.versionCode
-                            && libFile.length() == entry.getSize()) {
-                        PluginDebugLog.installFormatLog(TAG, "soFileName: %s already exist and version match", libName);
-                        continue;
-                    }
+                    PluginDebugLog.installFormatLog(TAG, "soFileName: %s already exist, delete it", libName);
+                    libFile.delete();
                 }
                 // copy zip entry to lib dir
                 installResult = copyToFile(entryInputStream, libFile);
-                if (installResult && packageInfo != null) {
-                    String key = packageInfo.packageName + "_" + libName;
-                    putSoVersion(context, key, packageInfo.versionCode);
-                }
-            } catch (IOException e) {
-                // ignore
-            } catch (ArrayIndexOutOfBoundsException e) {
+            } catch (Exception e) {
                 // ignore
             } finally {
                 closeQuietly(entryInputStream);
@@ -255,17 +209,6 @@ public final class FileUtils {
         return installResult;
     }
 
-    private static int getSoVersion(Context context, String key) {
-        SharedPreferences preferences = context.getSharedPreferences(SO_INFO_SP, Context.MODE_PRIVATE);
-        return preferences.getInt(key, 0);
-    }
-
-    private static void putSoVersion(Context context, String key, int version) {
-        SharedPreferences preferences = context.getSharedPreferences(SO_INFO_SP, Context.MODE_PRIVATE);
-        SharedPreferences.Editor editor = preferences.edit();
-        editor.putInt(key, version);
-        editor.apply();
-    }
 
     /**
      * 初始化 dex，因为第一次loaddex，如果放hostapp 进程，
@@ -286,7 +229,6 @@ public final class FileUtils {
                 if (dexFile != null) {
                     PluginDebugLog.installFormatLog(TAG, "DexOptimizer onStart: dexFile:%s", dexFile.getAbsolutePath());
                 }
-
             }
 
             @Override
@@ -294,7 +236,6 @@ public final class FileUtils {
                 if (dexFile != null) {
                     PluginDebugLog.installFormatLog(TAG, "DexOptimizer onSuccess: dexFile:%s", dexFile.getAbsolutePath());
                 }
-
             }
 
             @Override
@@ -305,7 +246,6 @@ public final class FileUtils {
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
-
             }
         });
     }
@@ -408,27 +348,39 @@ public final class FileUtils {
     }
 
     /**
-     * 迁移文件
-     *
+     * 移动文件
      * @param sourceFile 源文件
      * @param targetFile 目标文件
      */
-    public static void moveFile(File sourceFile, File targetFile) {
-        moveFile(sourceFile, targetFile, true);
+    public static boolean moveFile(File sourceFile, File targetFile) {
+        return moveFile(sourceFile, targetFile, true);
     }
 
     /**
      * 迁移文件
-     *
      * @param sourceFile       源文件
      * @param targetFile       目标文件
      * @param needDeleteSource 是否删除源文件
      */
-    public static void moveFile(File sourceFile, File targetFile, boolean needDeleteSource) {
-        copyToFile(sourceFile, targetFile);
-        if (needDeleteSource) {
-            sourceFile.delete();
+    public static boolean moveFile(File sourceFile, File targetFile, boolean needDeleteSource) {
+        boolean moveResult = false;
+        if (needDeleteSource && TextUtils.equals(sourceFile.getParent(), targetFile.getParent())) {
+            // 相同的目录下，可以直接rename
+            if (sourceFile.renameTo(targetFile)) {
+                // rename success
+                sourceFile.delete();
+            } else {
+                // rename failed try copy
+                moveResult = copyToFile(sourceFile, targetFile);
+                sourceFile.delete();
+            }
+        } else {
+            moveResult = copyToFile(sourceFile, targetFile);
+            if (needDeleteSource) {
+                sourceFile.delete();
+            }
         }
+        return moveResult;
     }
 
     /**
@@ -468,59 +420,6 @@ public final class FileUtils {
                 }
             }
         }
-    }
-
-    public static String getCurrentInstructionSet() {
-        if (currentInstructionSet != null) {
-            return currentInstructionSet;
-        }
-
-        try {
-            Class<?> clazz = Class.forName("dalvik.system.VMRuntime");
-            Method currentGet = clazz.getDeclaredMethod("getCurrentInstructionSet");
-
-            currentInstructionSet = (String) currentGet.invoke(null);
-            PluginDebugLog.runtimeFormatLog(TAG, "getCurrentInstructionSet: %s", currentInstructionSet);
-            return currentInstructionSet;
-        } catch (Exception e) {
-            // ignore
-        }
-        return "arm";  //默认返回arm指令集
-    }
-
-    public static String getCurrentProcessName(Context context) {
-        if (!TextUtils.isEmpty(currentProcessName)) {
-            return currentProcessName;
-        }
-
-        int pid = android.os.Process.myPid();
-        ActivityManager manager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
-        try {
-            for (ActivityManager.RunningAppProcessInfo process : manager.getRunningAppProcesses()) {
-                if (process.pid == pid) {
-                    return process.processName;
-                }
-            }
-        } catch (Exception e) {
-            // ActivityManager.getRunningAppProcesses() may throw NPE in some custom-made devices (oem BIRD)
-        }
-
-        // try to read process name in /proc/pid/cmdline if no result from activity manager
-        String cmdline = null;
-        BufferedReader processFileReader = null;
-        FileReader fileReader = null;
-        try {
-            fileReader = new FileReader(String.format(Locale.getDefault(), "/proc/%d/cmdline", Process.myPid()));
-            processFileReader = new BufferedReader(fileReader);
-            cmdline = processFileReader.readLine().trim();
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        } finally {
-            closeQuietly(processFileReader);
-            closeQuietly(fileReader);
-        }
-
-        return cmdline;
     }
 
     public static void closeQuietly(Closeable c) {

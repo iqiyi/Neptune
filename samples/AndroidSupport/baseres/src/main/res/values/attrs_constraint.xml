@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <attr name="barrierAllowsGoneWidgets" format="boolean" />
+    <attr name="barrierDirection" format="enum">
+        <enum name="left" value="0" />
+        <enum name="right" value="1" />
+        <enum name="top" value="2" />
+        <enum name="bottom" value="3" />
+        <enum name="start" value="5" />
+        <enum name="end" value="6" />
+    </attr>
+    <attr name="chainUseRtl" format="boolean" />
+    <attr name="constraintSet" format="reference" />
+    <attr name="constraint_referenced_ids" format="string" />
+    <attr name="content" format="reference" />
+    <attr name="emptyVisibility">
+        <enum name="gone" value="0" />
+        <enum name="invisible" value="1" />
+    </attr>
+    <attr name="layout_constrainedHeight" format="boolean" />
+    <attr name="layout_constrainedWidth" format="boolean" />
+    <attr name="layout_constraintBaseline_creator" format="integer" />
+    <attr name="layout_constraintBaseline_toBaselineOf" format="reference|enum">
+        <enum name="parent" value="0" />
+    </attr>
+    <attr name="layout_constraintBottom_creator" format="integer" />
+    <attr name="layout_constraintBottom_toBottomOf" format="reference|enum">
+        <enum name="parent" value="0" />
+    </attr>
+    <attr name="layout_constraintBottom_toTopOf" format="reference|enum">
+        <enum name="parent" value="0" />
+    </attr>
+    <attr name="layout_constraintCircle" format="reference" />
+    <attr name="layout_constraintCircleAngle" format="integer" />
+    <attr name="layout_constraintCircleRadius" format="dimension" />
+    <attr name="layout_constraintDimensionRatio" format="string" />
+    <attr name="layout_constraintEnd_toEndOf" format="reference|enum">
+        <enum name="parent" value="0" />
+    </attr>
+    <attr name="layout_constraintEnd_toStartOf" format="reference|enum">
+        <enum name="parent" value="0" />
+    </attr>
+    <attr name="layout_constraintGuide_begin" format="dimension" />
+    <attr name="layout_constraintGuide_end" format="dimension" />
+    <attr name="layout_constraintGuide_percent" format="float" />
+    <attr name="layout_constraintHeight_default">
+        <enum name="spread" value="0" />
+        <enum name="wrap" value="1" />
+        <enum name="percent" value="2" />
+    </attr>
+    <attr name="layout_constraintHeight_max" format="dimension|enum">
+        <enum name="wrap" value="-2" />
+    </attr>
+    <attr name="layout_constraintHeight_min" format="dimension|enum">
+        <enum name="wrap" value="-2" />
+    </attr>
+    <attr name="layout_constraintHeight_percent" format="float" />
+    <attr name="layout_constraintHorizontal_bias" format="float" />
+    <attr name="layout_constraintHorizontal_chainStyle" format="enum">
+        <enum name="spread" value="0" />
+        <enum name="spread_inside" value="1" />
+        <enum name="packed" value="2" />
+    </attr>
+    <attr name="layout_constraintHorizontal_weight" format="float" />
+    <attr name="layout_constraintLeft_creator" format="integer" />
+    <attr name="layout_constraintLeft_toLeftOf" format="reference|enum">
+        <enum name="parent" value="0" />
+    </attr>
+    <attr name="layout_constraintLeft_toRightOf" format="reference|enum">
+        <enum name="parent" value="0" />
+    </attr>
+    <attr name="layout_constraintRight_creator" format="integer" />
+    <attr name="layout_constraintRight_toLeftOf" format="reference|enum">
+        <enum name="parent" value="0" />
+    </attr>
+    <attr name="layout_constraintRight_toRightOf" format="reference|enum">
+        <enum name="parent" value="0" />
+    </attr>
+    <attr name="layout_constraintStart_toEndOf" format="reference|enum">
+        <enum name="parent" value="0" />
+    </attr>
+    <attr name="layout_constraintStart_toStartOf" format="reference|enum">
+        <enum name="parent" value="0" />
+    </attr>
+    <attr name="layout_constraintTop_creator" format="integer" />
+    <attr name="layout_constraintTop_toBottomOf" format="reference|enum">
+        <enum name="parent" value="0" />
+    </attr>
+    <attr name="layout_constraintTop_toTopOf" format="reference|enum">
+        <enum name="parent" value="0" />
+    </attr>
+    <attr name="layout_constraintVertical_bias" format="float" />
+    <attr name="layout_constraintVertical_chainStyle" format="enum">
+        <enum name="spread" value="0" />
+        <enum name="spread_inside" value="1" />
+        <enum name="packed" value="2" />
+    </attr>
+    <attr name="layout_constraintVertical_weight" format="float" />
+    <attr name="layout_constraintWidth_default">
+        <enum name="spread" value="0" />
+        <enum name="wrap" value="1" />
+        <enum name="percent" value="2" />
+    </attr>
+    <attr name="layout_constraintWidth_max" format="dimension|enum">
+        <enum name="wrap" value="-2" />
+    </attr>
+    <attr name="layout_constraintWidth_min" format="dimension|enum">
+        <enum name="wrap" value="-2" />
+    </attr>
+    <attr name="layout_constraintWidth_percent" format="float" />
+    <attr name="layout_editor_absoluteX" format="dimension" />
+    <attr name="layout_editor_absoluteY" format="dimension" />
+    <attr name="layout_goneMarginBottom" format="dimension" />
+    <attr name="layout_goneMarginEnd" format="dimension" />
+    <attr name="layout_goneMarginLeft" format="dimension" />
+    <attr name="layout_goneMarginRight" format="dimension" />
+    <attr name="layout_goneMarginStart" format="dimension" />
+    <attr name="layout_goneMarginTop" format="dimension" />
+    <attr name="layout_optimizationLevel">
+        <flag name="none" value="0" />
+        <flag name="standard" value="7" /> <!-- direct, barriers, chains -->
+        <flag name="direct" value="1" />
+        <flag name="barrier" value="2" />
+        <flag name="chains" value="4" />
+        <flag name="dimensions" value="8" />
+        <flag name="groups" value="32" />
+    </attr>
+    <declare-styleable name="ConstraintLayout_Layout">
+        <attr name="android:orientation" />
+        <attr name="android:minWidth" />
+        <attr name="android:minHeight" />
+        <attr name="android:maxWidth" />
+        <attr name="android:maxHeight" />
+        <attr name="layout_optimizationLevel" />
+        <attr name="constraintSet" />
+        <attr name="barrierDirection" />
+        <attr name="barrierAllowsGoneWidgets" />
+        <attr name="constraint_referenced_ids" />
+        <attr name="chainUseRtl" />
+        <attr name="layout_constraintCircle" />
+        <attr name="layout_constraintCircleRadius" />
+        <attr name="layout_constraintCircleAngle" />
+        <attr name="layout_constraintGuide_begin" />
+        <attr name="layout_constraintGuide_end" />
+        <attr name="layout_constraintGuide_percent" />
+        <attr name="layout_constraintLeft_toLeftOf" />
+        <attr name="layout_constraintLeft_toRightOf" />
+        <attr name="layout_constraintRight_toLeftOf" />
+        <attr name="layout_constraintRight_toRightOf" />
+        <attr name="layout_constraintTop_toTopOf" />
+        <attr name="layout_constraintTop_toBottomOf" />
+        <attr name="layout_constraintBottom_toTopOf" />
+        <attr name="layout_constraintBottom_toBottomOf" />
+        <attr name="layout_constraintBaseline_toBaselineOf" />
+        <attr name="layout_constraintStart_toEndOf" />
+        <attr name="layout_constraintStart_toStartOf" />
+        <attr name="layout_constraintEnd_toStartOf" />
+        <attr name="layout_constraintEnd_toEndOf" />
+        <attr name="layout_goneMarginLeft" />
+        <attr name="layout_goneMarginTop" />
+        <attr name="layout_goneMarginRight" />
+        <attr name="layout_goneMarginBottom" />
+        <attr name="layout_goneMarginStart" />
+        <attr name="layout_goneMarginEnd" />
+        <attr name="layout_constrainedWidth" />
+        <attr name="layout_constrainedHeight" />
+        <attr name="layout_constraintHorizontal_bias" />
+        <attr name="layout_constraintVertical_bias" />
+        <attr name="layout_constraintWidth_default" />
+        <attr name="layout_constraintHeight_default" />
+        <attr name="layout_constraintWidth_min" />
+        <attr name="layout_constraintWidth_max" />
+        <attr name="layout_constraintWidth_percent" />
+        <attr name="layout_constraintHeight_min" />
+        <attr name="layout_constraintHeight_max" />
+        <attr name="layout_constraintHeight_percent" />
+        <attr name="layout_constraintLeft_creator" />
+        <attr name="layout_constraintTop_creator" />
+        <attr name="layout_constraintRight_creator" />
+        <attr name="layout_constraintBottom_creator" />
+        <attr name="layout_constraintBaseline_creator" />
+        <attr name="layout_constraintDimensionRatio" />
+        <attr name="layout_constraintHorizontal_weight" />
+        <attr name="layout_constraintVertical_weight" />
+        <attr name="layout_constraintHorizontal_chainStyle" />
+        <attr name="layout_constraintVertical_chainStyle" />
+        <attr name="layout_editor_absoluteX" />
+        <attr name="layout_editor_absoluteY" />
+    </declare-styleable>
+    <declare-styleable name="ConstraintLayout_placeholder">
+        <attr name="emptyVisibility" />
+        <attr name="content" />
+    </declare-styleable>
+    <declare-styleable name="ConstraintSet">
+        <attr name="android:orientation" />
+        <attr name="android:id" />
+        <attr name="android:visibility" />
+        <attr name="android:alpha" />
+        <attr name="android:elevation" />
+        <attr name="android:rotation" />
+        <attr name="android:rotationX" />
+        <attr name="android:rotationY" />
+        <attr name="android:scaleX" />
+        <attr name="android:scaleY" />
+        <attr name="android:transformPivotX" />
+        <attr name="android:transformPivotY" />
+        <attr name="android:translationX" />
+        <attr name="android:translationY" />
+        <attr name="android:translationZ" />
+        <attr name="android:layout_width" />
+        <attr name="android:layout_height" />
+        <attr name="android:layout_marginStart" />
+        <attr name="android:layout_marginBottom" />
+        <attr name="android:layout_marginTop" />
+        <attr name="android:layout_marginEnd" />
+        <attr name="android:layout_marginLeft" />
+        <attr name="android:layout_marginRight" />
+        <attr name="layout_constraintCircle" />
+        <attr name="layout_constraintCircleRadius" />
+        <attr name="layout_constraintCircleAngle" />
+        <attr name="layout_constraintGuide_begin" />
+        <attr name="layout_constraintGuide_end" />
+        <attr name="layout_constraintGuide_percent" />
+        <attr name="layout_constraintLeft_toLeftOf" />
+        <attr name="layout_constraintLeft_toRightOf" />
+        <attr name="layout_constraintRight_toLeftOf" />
+        <attr name="layout_constraintRight_toRightOf" />
+        <attr name="layout_constraintTop_toTopOf" />
+        <attr name="layout_constraintTop_toBottomOf" />
+        <attr name="layout_constraintBottom_toTopOf" />
+        <attr name="layout_constraintBottom_toBottomOf" />
+        <attr name="layout_constraintBaseline_toBaselineOf" />
+        <attr name="layout_constraintStart_toEndOf" />
+        <attr name="layout_constraintStart_toStartOf" />
+        <attr name="layout_constraintEnd_toStartOf" />
+        <attr name="layout_constraintEnd_toEndOf" />
+        <attr name="layout_goneMarginLeft" />
+        <attr name="layout_goneMarginTop" />
+        <attr name="layout_goneMarginRight" />
+        <attr name="layout_goneMarginBottom" />
+        <attr name="layout_goneMarginStart" />
+        <attr name="layout_goneMarginEnd" />
+        <attr name="layout_constrainedWidth" />
+        <attr name="layout_constrainedHeight" />
+        <attr name="layout_constraintHorizontal_bias" />
+        <attr name="layout_constraintVertical_bias" />
+        <attr name="layout_constraintWidth_default" />
+        <attr name="layout_constraintHeight_default" />
+        <attr name="layout_constraintWidth_min" />
+        <attr name="layout_constraintWidth_max" />
+        <attr name="layout_constraintWidth_percent" />
+        <attr name="layout_constraintHeight_min" />
+        <attr name="layout_constraintHeight_max" />
+        <attr name="layout_constraintHeight_percent" />
+        <attr name="layout_constraintLeft_creator" />
+        <attr name="layout_constraintTop_creator" />
+        <attr name="layout_constraintRight_creator" />
+        <attr name="layout_constraintBottom_creator" />
+        <attr name="layout_constraintBaseline_creator" />
+        <attr name="layout_constraintDimensionRatio" />
+        <attr name="layout_constraintHorizontal_weight" />
+        <attr name="layout_constraintVertical_weight" />
+        <attr name="layout_constraintHorizontal_chainStyle" />
+        <attr name="layout_constraintVertical_chainStyle" />
+        <attr name="layout_editor_absoluteX" />
+        <attr name="layout_editor_absoluteY" />
+        <attr name="barrierDirection" />
+        <attr name="constraint_referenced_ids" />
+        <attr name="android:maxHeight" />
+        <attr name="android:maxWidth" />
+        <attr name="android:minHeight" />
+        <attr name="android:minWidth" />
+        <attr name="barrierAllowsGoneWidgets" />
+        <attr name="chainUseRtl" />
+    </declare-styleable>
+    <declare-styleable name="LinearConstraintLayout">
+        <attr name="android:orientation" />
+    </declare-styleable>
+</resources>

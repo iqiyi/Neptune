@@ -64,61 +64,157 @@ public class ComponentFinder {
     public static final String DEFAULT_SERVICE_PROXY_PREFIX =
             "org.qiyi.pluginlibrary.component.ServiceProxy";
 
+
     /**
      * 在插件中查找可以处理mIntent的Service组件,找到之后为其分配合适的Proxy
      *
-     * @param mLoadedApk 插件的{@link PluginLoadedApk}对象
-     * @param mIntent    需要查找的Intent
+     * @param mPluginPackageName 插件包名
+     * @param mIntent            跳转Activity的Intent
+     * @param context            宿主的Context
+     * @return 处理后的Intent
      */
-    public static void switchToServiceProxy(PluginLoadedApk mLoadedApk, Intent mIntent) {
-        if (mIntent == null || mLoadedApk == null) {
-            return;
+    public static Intent switchToServiceProxy(String mPluginPackageName, Intent mIntent, Context context) {
+        if (mIntent == null) {
+            PluginDebugLog.runtimeLog(TAG, "switchToServiceProxy intent is null");
+            return null;
         }
 
-        if (mIntent.getComponent() == null) {
-            //隐式启动
-            ServiceInfo mServiceInfo = mLoadedApk.getPluginPackageInfo().resolveService(mIntent);
-            if (mServiceInfo != null) {
-                switchToServiceProxy(mLoadedApk, mIntent, mServiceInfo.name);
+        ServiceInfo targetService = null;
+        String targetPkg = "";
+        String hostPkg = context.getPackageName();
+        if (mIntent.getComponent() != null
+                && !TextUtils.isEmpty(mIntent.getComponent().getClassName())) {
+            // action 为空，但是指定了包名和activity类名
+            ComponentName compName = mIntent.getComponent();
+            String pkg = compName.getPackageName();
+            String toSerName = compName.getClassName();
+            if (TextUtils.equals(pkg, mPluginPackageName)
+                    || TextUtils.equals(pkg, hostPkg)) {
+                // 跳转当前插件
+                targetPkg = mPluginPackageName;
+            } else if (IntentUtils.isIntentToPlugin(mIntent)) {
+                // 跳转其他插件, 插件A--->插件B, 没有flag认为是跳转外部独立APP
+                targetPkg = pkg;
+            }
+
+            PluginDebugLog.runtimeFormatLog(TAG, "switchToServiceProxy explicit search target service %s in plugin pkg %s",
+                    toSerName, targetPkg);
+            if (!TextUtils.isEmpty(targetPkg)) {
+                PluginLoadedApk mLoadedApk = PluginManager.getPluginLoadedApkByPkgName(targetPkg);
+                PluginPackageInfo mPlugin = mLoadedApk != null ? mLoadedApk.getPluginPackageInfo()
+                        : PluginPackageManagerNative.getInstance(context).getPluginPackageInfo(targetPkg);
+                if (mPlugin != null) {
+                    targetService = mPlugin.getServiceInfo(toSerName);
+                    if (targetService != null) {
+                        PluginDebugLog.runtimeFormatLog(TAG,
+                                "switchToServiceProxy find targetService %s in plugin %s", toSerName, targetPkg);
+                    }
+                }
             }
         } else {
-            //显示启动
-            String targetService = mIntent.getComponent().getClassName();
-            switchToServiceProxy(mLoadedApk, mIntent, targetService);
+            // 隐式启动，优先在当前插件中查找
+            String searchPkg = "";
+            boolean fallback = false;
+            String pkg = mIntent.getPackage();
+            if (TextUtils.isEmpty(pkg)
+                    || TextUtils.equals(pkg, mPluginPackageName)
+                    || TextUtils.equals(pkg, hostPkg)) {
+                // 没有设置pkg，设置的是当前插件的包名或者宿主的包名，优先搜索当前插件
+                searchPkg = mPluginPackageName;
+                fallback = IntentUtils.isIntentToPlugin(mIntent);
+            } else if (IntentUtils.isIntentToPlugin(mIntent)) {
+                // 隐式跳转其他插件， 没有flag则认为是跳转外部独立APP
+                searchPkg = mIntent.getPackage();
+                fallback = false;
+            }
+
+            PluginDebugLog.runtimeFormatLog(TAG, "switchToServiceProxy implicit search target service in plugin pkg %s",
+                    searchPkg);
+            if (!TextUtils.isEmpty(searchPkg)) {
+                PluginLoadedApk mLoadedApk = PluginManager.getPluginLoadedApkByPkgName(searchPkg);
+                PluginPackageInfo mPlugin = mLoadedApk != null ? mLoadedApk.getPluginPackageInfo()
+                        : PluginPackageManagerNative.getInstance(context).getPluginPackageInfo(searchPkg);
+                if (mPlugin != null) {
+                    targetService = mPlugin.resolveService(mIntent);
+                    if (targetService != null) {
+                        targetPkg = searchPkg;
+                        PluginDebugLog.runtimeFormatLog(TAG,
+                                "switchToServiceProxy find targetService %s in plugin %s", targetService.name, searchPkg);
+                    }
+                }
+            }
+
+            if (targetService == null && fallback) {
+                PluginDebugLog.runtimeFormatLog(TAG, "switchToServiceProxy not find targetService in plugin %s, " +
+                        "fallback to search in all installed plugins", searchPkg);
+                // 去其他插件里查找
+                List<PluginLiteInfo> packageList =
+                        PluginPackageManagerNative.getInstance(context).getInstalledApps();
+                if (packageList != null) {
+                    for (PluginLiteInfo pkgInfo : packageList) {
+                        if (pkgInfo == null || TextUtils.equals(pkgInfo.packageName, searchPkg)) {
+                            continue;
+                        }
+
+                        PluginPackageInfo target = PluginPackageManagerNative.getInstance(context)
+                                .getPluginPackageInfo(context, pkgInfo);
+                        if (target != null) {
+                            targetService = target.resolveService(mIntent);
+                            if (targetService != null) {
+                                targetPkg = pkgInfo.packageName;
+                                PluginDebugLog.runtimeFormatLog(TAG,
+                                        "switchToServiceProxy find targetService in other plugin %s!", pkgInfo.packageName);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
         }
+
+        String intentInfo = mIntent.toString();
+        if (null != mIntent.getExtras()) {
+            intentInfo = intentInfo + mIntent.getExtras().toString();
+        }
+
+        if (targetService != null) {
+            PluginDebugLog.runtimeFormatLog(TAG, "switchToServiceProxy from plugin %s to plugin %s, "
+                    + "targetService: %s, intent: %s", mPluginPackageName, targetPkg, targetService, intentInfo);
+            setServiceProxy(mIntent, targetService);
+        } else {
+            PluginDebugLog.runtimeFormatLog(TAG, "switchToServiceProxy not find targetService from plugin %s, intent: %s",
+                    mPluginPackageName, intentInfo);
+        }
+
+        return mIntent;
     }
 
-
     /**
-     * 在插件中查找可以处理mIntent的Service组件,找到之后为其分配合适的Proxy
+     * 为插件中的Service设置代理
      *
-     * @param mLoadedApk    插件的{@link PluginLoadedApk}对象
-     * @param mIntent       需要查找的Intent
-     * @param targetService 处理当前Intent的组件的类名
+     * @param mIntent        需要设置代理的Service的Intent
+     * @param targetService 目标的ServiceInfo，包含插件包名和跳转Service的名称
      */
-    public static void switchToServiceProxy(PluginLoadedApk mLoadedApk,
-                                            Intent mIntent,
-                                            String targetService) {
-        if (null == mLoadedApk
-                || null == mIntent
-                || TextUtils.isEmpty(targetService)
-                || mLoadedApk.getPluginPackageInfo() == null
-                || mLoadedApk.getPluginPackageInfo().getServiceInfo(targetService) == null) {
+    private static void setServiceProxy(Intent mIntent, ServiceInfo targetService) {
+        String mPackageName = targetService.packageName;
+        String serviceName = targetService.name;
+        PluginLoadedApk mLoadedApk = PluginManager.getPluginLoadedApkByPkgName(mPackageName);
+        if (null == mLoadedApk) {
+            PluginDebugLog.runtimeFormatLog(TAG,
+                    "setServiceProxy failed, %s, PluginLoadedApk is null", mPackageName);
             return;
         }
+
+        PluginDebugLog.runtimeFormatLog(TAG, "setServiceProxy  serviceInfo: " + targetService.toString());
         mIntent.setExtrasClassLoader(mLoadedApk.getPluginClassLoader());
         mIntent.addCategory(IntentConstant.EXTRA_TARGET_CATEGORY + System.currentTimeMillis())
                 .putExtra(IntentConstant.EXTRA_TARGET_IS_PLUGIN_KEY, true)
-                .putExtra(IntentConstant.EXTRA_TARGET_CLASS_KEY, targetService)
+                .putExtra(IntentConstant.EXTRA_TARGET_CLASS_KEY, serviceName)
                 .putExtra(IntentConstant.EXTRA_TARGET_PACKAGE_KEY, mLoadedApk.getPluginPackageName());
         try {
             mIntent.setClass(mLoadedApk.getHostContext(),
                     Class.forName(matchServiceProxyByFeature(mLoadedApk.getProcessName())));
-            String intentInfo = mIntent.toString();
-            if (null != mIntent.getExtras()) {
-                intentInfo = intentInfo + mIntent.getExtras().toString();
-            }
-            PluginDebugLog.runtimeLog(TAG, "switchToServiceProxy intent info: " + intentInfo);
+            IntentUtils.setProxyInfo(mIntent, mPackageName);
         } catch (ClassNotFoundException e) {
             e.printStackTrace();
         }
@@ -138,108 +234,146 @@ public class ComponentFinder {
                                                Intent mIntent,
                                                int requestCode,
                                                Context context) {
-
         if (mIntent == null) {
-            PluginDebugLog.runtimeLog(TAG, "handleStartActivityIntent intent is null!");
-            return mIntent;
+            PluginDebugLog.runtimeLog(TAG, "switchToActivityProxy intent is null!");
+            return null;
         }
 
         if (TextUtils.isEmpty(mPluginPackageName)) {
             // Note: 宿主的Instrumentation会执行到这里, 不能做拦截, 导致本来要启动独立App的逻辑变成启动插件
-            PluginDebugLog.runtimeLog(TAG, "handleStartActivityIntent mPluginPackageName is null");
+            PluginDebugLog.runtimeLog(TAG, "switchToActivityProxy mPluginPackageName is null");
             return mIntent;
         }
 
-        PluginDebugLog.runtimeLog(TAG, "handleStartActivityIntent: pluginId: "
+        PluginDebugLog.runtimeLog(TAG, "switchToActivityProxy: plugin: "
                 + mPluginPackageName + ", intent: " + mIntent
                 + ", requestCode: " + requestCode);
         if (hasProxyActivity(mIntent)) {
             PluginDebugLog.runtimeLog(TAG,
-                    "handleStartActivityIntent has change the intent just return");
+                    "switchToActivityProxy has already set the intent to proxy activity");
             return mIntent;
         }
 
         ActivityInfo targetActivity = null;
-        PluginLoadedApk mLoadedApk = PluginManager.getPluginLoadedApkByPkgName(mPluginPackageName);
+        String targetPkg = "";
+        String hostPkg = context.getPackageName();
         if (mIntent.getComponent() != null
                 && !TextUtils.isEmpty(mIntent.getComponent().getClassName())) {
-            // action 为空，但是指定了包名和 activity类名
+            // action 为空，但是指定了包名和activity类名
             ComponentName compName = mIntent.getComponent();
             String pkg = compName.getPackageName();
             String toActName = compName.getClassName();
-            if (mLoadedApk != null) {
-                if (TextUtils.equals(pkg, mPluginPackageName)
-                        || TextUtils.equals(pkg, mLoadedApk.getHostPackageName())) {
-                    PluginPackageInfo mPlugin = mLoadedApk.getPluginPackageInfo();
+            if (TextUtils.equals(pkg, mPluginPackageName)
+                    || TextUtils.equals(pkg, hostPkg)) {
+                // 跳转当前插件
+                targetPkg = mPluginPackageName;
+            } else if (IntentUtils.isIntentToPlugin(mIntent)) {
+                // 跳转其他插件, 插件A--->插件B, 没有flag认为是跳转外部独立APP
+                targetPkg = pkg;
+            }
+
+            PluginDebugLog.runtimeFormatLog(TAG, "switchToActivityProxy explicit search target activity %s in plugin %s",
+                    toActName, targetPkg);
+            if (!TextUtils.isEmpty(targetPkg)) {
+                PluginLoadedApk mLoadedApk = PluginManager.getPluginLoadedApkByPkgName(targetPkg);
+                PluginPackageInfo mPlugin = mLoadedApk != null ? mLoadedApk.getPluginPackageInfo()
+                        : PluginPackageManagerNative.getInstance(context).getPluginPackageInfo(targetPkg);
+                if (mPlugin != null) {
                     targetActivity = mPlugin.getActivityInfo(toActName);
                     if (targetActivity != null) {
-                        PluginDebugLog.runtimeLog(TAG,
-                                "switchToActivityProxy find targetActivity in current currentPlugin!");
-                    }
-                }
-            } else {
-                if (!TextUtils.isEmpty(pkg)) {
-                    PluginPackageInfo otherPluginInfo = PluginPackageManagerNative.getInstance(context)
-                            .getPluginPackageInfo(pkg);
-                    if (otherPluginInfo != null) {
-                        targetActivity = otherPluginInfo.getActivityInfo(toActName);
-                        if (targetActivity != null) {
-                            PluginDebugLog.runtimeFormatLog(TAG,
-                                    "switchToActivityProxy find targetActivity in plugin %s!", pkg);
-                        }
+                        PluginDebugLog.runtimeFormatLog(TAG,
+                                "switchToActivityProxy find targetActivity %s in plugin %s", toActName, targetPkg);
                     }
                 }
             }
         } else {
-            if (mLoadedApk != null) {
-                PluginPackageInfo info = mLoadedApk.getPluginPackageInfo();
-                if (info != null) {
-                    targetActivity = info.resolveActivity(mIntent);
+            // 隐式启动，优先在当前插件中查找
+            String searchPkg = "";
+            boolean fallback = false;
+            String pkg = mIntent.getPackage();
+            if (TextUtils.isEmpty(pkg)
+                    || TextUtils.equals(pkg, mPluginPackageName)
+                    || TextUtils.equals(mIntent.getPackage(), hostPkg)) {
+                // 没有设置pkg，设置的是当前插件的包名或者宿主的包名，优先搜索当前插件
+                searchPkg = mPluginPackageName;
+                fallback = IntentUtils.isIntentToPlugin(mIntent);
+            } else if (IntentUtils.isIntentToPlugin(mIntent)) {
+                // 隐式跳转其他插件， 没有flag则认为是跳转外部独立APP
+                searchPkg = mIntent.getPackage();
+                fallback = false;
+            }
+
+            PluginDebugLog.runtimeFormatLog(TAG, "switchToActivityProxy implicit search target activity in plugin %s",
+                    searchPkg);
+            if (!TextUtils.isEmpty(searchPkg)) {
+                PluginLoadedApk mLoadedApk = PluginManager.getPluginLoadedApkByPkgName(searchPkg);
+                PluginPackageInfo mPlugin = mLoadedApk != null ? mLoadedApk.getPluginPackageInfo()
+                        : PluginPackageManagerNative.getInstance(context).getPluginPackageInfo(searchPkg);
+                if (mPlugin != null) {
+                    targetActivity = mPlugin.resolveActivity(mIntent);
+                    if (targetActivity != null) {
+                        targetPkg = searchPkg;
+                        PluginDebugLog.runtimeFormatLog(TAG,
+                                "switchToActivityProxy find targetActivity %s in plugin %s", targetActivity.name, searchPkg);
+                    }
                 }
-            } else {
+            }
+
+            if (targetActivity == null && fallback) {
+                PluginDebugLog.runtimeFormatLog(TAG, "switchToActivityProxy not find targetActivity in plugin %s, " +
+                        "fallback to search in all installed plugins", searchPkg);
+                // 去其他插件里查找
                 List<PluginLiteInfo> packageList =
                         PluginPackageManagerNative.getInstance(context).getInstalledApps();
                 if (packageList != null) {
                     for (PluginLiteInfo pkgInfo : packageList) {
-                        if (pkgInfo != null) {
-                            PluginPackageInfo target = PluginPackageManagerNative.getInstance(context)
-                                    .getPluginPackageInfo(context, pkgInfo);
-                            if (null != target) {
-                                targetActivity = target.resolveActivity(mIntent);
-                                if (targetActivity != null) {
-                                    PluginDebugLog.runtimeFormatLog(TAG,
-                                            "switchToActivityProxy find targetActivity in plugin %s!", pkgInfo.packageName);
-                                    break;
-                                }
+                        if (pkgInfo == null || TextUtils.equals(pkgInfo.packageName, searchPkg)) {
+                            continue;
+                        }
+
+                        PluginPackageInfo target = PluginPackageManagerNative.getInstance(context)
+                                .getPluginPackageInfo(context, pkgInfo);
+                        if (target != null) {
+                            targetActivity = target.resolveActivity(mIntent);
+                            if (targetActivity != null) {
+                                targetPkg = pkgInfo.packageName;
+                                PluginDebugLog.runtimeFormatLog(TAG,
+                                        "switchToActivityProxy find targetActivity in other plugin %s!", pkgInfo.packageName);
+                                break;
                             }
                         }
                     }
                 }
             }
         }
-        PluginDebugLog.runtimeLog(TAG, "handleStartActivityIntent pluginId: "
-                + mPluginPackageName + " intent: " + mIntent.toString()
-                + " targetActivity: " + targetActivity);
-        if (targetActivity != null) {
-            setActivityProxy(mIntent, targetActivity);
-        }
-        if (mLoadedApk != null) {
-            mLoadedApk.getActivityStackSupervisor().dealLaunchMode(mIntent);
-        }
+
         String intentInfo = mIntent.toString();
         if (null != mIntent.getExtras()) {
             intentInfo = intentInfo + mIntent.getExtras().toString();
         }
-        return mIntent;
 
+        if (targetActivity != null) {
+            PluginDebugLog.runtimeFormatLog(TAG, "switchToActivityProxy from plugin %s to plugin %s, "
+                + "targetActivity: %s, intent: %s", mPluginPackageName, targetPkg, targetActivity, intentInfo);
+            setActivityProxy(mIntent, targetActivity);
+            PluginLoadedApk mLoadedApk = PluginManager.getPluginLoadedApkByPkgName(targetPkg);
+            if (mLoadedApk != null) {
+                mLoadedApk.getActivityStackSupervisor().dealLaunchMode(mIntent);
+            }
+        } else {
+            PluginDebugLog.runtimeFormatLog(TAG, "switchToActivityProxy not find targetActivity from plugin %s, intent: %s",
+                    mPluginPackageName, intentInfo);
+        }
+
+        return mIntent;
     }
 
     /**
      * 查找能够响应这个Uri的插件
      *
-     * @param context  宿主的上下文
-     * @param uri  provider的Uri地址
-     * @return  能够响应的插件包名
+     * @param context 宿主的上下文
+     * @param uri     provider的Uri地址
+     * @return 能够响应的插件包名
      */
     public static String resolvePkgName(Context context, Uri uri) {
         if (uri == null || uri.getAuthority() == null) {
@@ -255,9 +389,10 @@ public class ComponentFinder {
 
     /**
      * 查找能够响应这个authority的插件ProviderInfo
-     * @param context 宿主的上下文
+     *
+     * @param context   宿主的上下文
      * @param authority
-     * @return  返回能够响应的ProviderInfo
+     * @return 返回能够响应的ProviderInfo
      */
     public static ProviderInfo resolveProviderInfo(Context context, String authority) {
         // 首先去内存中查找
@@ -300,15 +435,14 @@ public class ComponentFinder {
         if (mIntent != null && mIntent.getComponent() != null
                 && !TextUtils.isEmpty(IntentUtils.getTargetClass(mIntent))
                 && !TextUtils.isEmpty(IntentUtils.getTargetPackage(mIntent))) {
-            if (mIntent.getComponent().getClassName().startsWith(ComponentFinder.DEFAULT_ACTIVITY_PROXY_PREFIX)) {
-                return true;
-            }
+            String proxyActName = mIntent.getComponent().getClassName();
+            return proxyActName.startsWith(ComponentFinder.DEFAULT_ACTIVITY_PROXY_PREFIX);
         }
         return false;
     }
 
     /**
-     * 为插件中的Activity 设置代理
+     * 为插件中的Activity设置代理
      *
      * @param mIntent        需要设置代理的Activity的Intent
      * @param targetActivity 目标的ActivityInfo，包含插件包名和跳转Activity的名称
@@ -316,13 +450,14 @@ public class ComponentFinder {
     private static void setActivityProxy(Intent mIntent, ActivityInfo targetActivity) {
         String mPackageName = targetActivity.packageName;
         String activityName = targetActivity.name;
-        PluginLoadedApk mLoadedApk = PluginManager.getPluginLoadedApkByPkgName(targetActivity.packageName);
+        PluginLoadedApk mLoadedApk = PluginManager.getPluginLoadedApkByPkgName(mPackageName);
         if (null == mLoadedApk) {
             PluginDebugLog.runtimeFormatLog(TAG,
-                    "setActivityProxy failed, %s, PluginLoadedApk is null",
-                    targetActivity.packageName);
+                    "setActivityProxy failed, %s, PluginLoadedApk is null", mPackageName);
             return;
         }
+
+        PluginDebugLog.runtimeFormatLog(TAG, "setActivityProxy  activityInfo: " + targetActivity.toString());
         ComponentName compName = new ComponentName(mLoadedApk.getHostPackageName(),
                 findActivityProxy(mLoadedApk, targetActivity));
         mIntent.setExtrasClassLoader(mLoadedApk.getPluginClassLoader());
@@ -494,6 +629,7 @@ public class ComponentFinder {
 
     /**
      * 根据代理Service名称修复插件运行进程名称
+     *
      * @param serviceName 代理service名称
      * @return 运行的进程名
      */

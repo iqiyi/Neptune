@@ -60,8 +60,9 @@ android {
 
     android.applicationVariants.all { variant ->
 
-        def fileName = defaultConfig.applicationId + ".apk"
+        def fileName = variant.applicationId + ".apk"
         boolean highAGP = Utils.compareVersion(Version.ANDROID_GRADLE_PLUGIN_VERSION, "3.0.0") >= 0
+        File outputFile
         variant.outputs.each { output ->
             // 修改apk名称
             //def fileName = defaultConfig.applicationId + "-" + defaultConfig.versionName + "-" + variant.buildType.name + ".apk"
@@ -73,6 +74,7 @@ android {
                     output.outputFile = new File(file.parent, fileName)
                 }
             }
+            outputFile = output.outputFile
         }
 
         def assembleTask = tasks.getByName("assemble${variant.name.capitalize()}")
@@ -82,16 +84,10 @@ android {
             if (targetApk.exists()) {
                 targetApk.delete()
             }
-
             copy {
-                if (highAGP) {
-                    from "${project.buildDir}/outputs/apk/${variant.name}"
-                } else {
-                    from "${project.buildDir}/outputs/apk"
-                }
-
+                from outputFile.getParent()
                 into targetDir
-                include "**.apk"
+                include fileName
             }
         }
     }

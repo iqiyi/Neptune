@@ -142,23 +142,19 @@ public class PActivityStackSupervisor {
             return;
         }
         List<IntentRequest> intents = sIntentLoadingMap.get(pkgName);
-        Intent toBeRemoved = null;
-        if (null != intents) {
-            for (IntentRequest request : intents) {
-                Intent temp = request.getIntent();
-                if (TextUtils.equals(temp.getStringExtra(IntentConstant.EXTRA_TARGET_CLASS_KEY),
-                        intent.getStringExtra(IntentConstant.EXTRA_TARGET_CLASS_KEY))) {
-                    toBeRemoved = temp;
-                    break;
-                }
+        if (intents == null) {
+            return;
+        }
+        Iterator<IntentRequest> iterator = intents.iterator();
+        while (iterator.hasNext()) {
+            IntentRequest request = iterator.next();
+            Intent temp = request.getIntent();
+            if (TextUtils.equals(temp.getStringExtra(IntentConstant.EXTRA_TARGET_CLASS_KEY),
+                    intent.getStringExtra(IntentConstant.EXTRA_TARGET_CLASS_KEY))) {
+                iterator.remove();
+                PluginDebugLog.runtimeFormatLog(TAG, "removeLoadingIntent pkgName: %s, toBeRemoved: %s", pkgName, temp);
             }
         }
-        boolean result = false;
-        if (null != toBeRemoved) {
-            result = intents.remove(toBeRemoved);
-        }
-        PluginDebugLog.runtimeLog(TAG, "removeLoadingIntent pkgName: " + pkgName + " toBeRemoved: "
-                + toBeRemoved + " result: " + result);
     }
 
     /**
@@ -207,6 +203,7 @@ public class PActivityStackSupervisor {
         // 退出的时候，前后台栈都需要搜索一遍
         PActivityStack sysStack = findAssociatedStack(mFocusedStack);
         sysStack.pop(activity);
+        removeLoadingIntent(mLoadedApk.getPluginPackageName(), activity.getIntent());
         if (mLastFocusedStack != null) {
             sysStack = findAssociatedStack(mLastFocusedStack);
             sysStack.pop(activity);
@@ -338,8 +335,8 @@ public class PActivityStackSupervisor {
             return;
         }
 
-        PluginDebugLog.runtimeLog(TAG, "dealLaunchMode target activity: " + intent + " source: "
-                + targetActivity);
+        PluginDebugLog.runtimeLog(TAG, "dealLaunchMode start: " + intent + ", before flag: "
+                + Integer.toHexString(intent.getFlags()) + ", targetActivity: " + targetActivity);
         // 不支持LAUNCH_SINGLE_INSTANCE
         ActivityInfo info = mLoadedApk.getPluginPackageInfo().getActivityInfo(targetActivity);
         if (info == null || info.launchMode == ActivityInfo.LAUNCH_SINGLE_INSTANCE) {
@@ -352,7 +349,6 @@ public class PActivityStackSupervisor {
         PluginDebugLog.runtimeLog(TAG, "dealLaunchMode isSingleTop " + isSingleTop + " isSingleTask "
                 + isSingleTask + " isClearTop " + isClearTop);
         int flag = intent.getFlags();
-        PluginDebugLog.runtimeLog(TAG, "before flag: " + Integer.toHexString(intent.getFlags()));
         if ((isSingleTop || isSingleTask) && (flag & Intent.FLAG_ACTIVITY_SINGLE_TOP) != 0) {
             flag = flag ^ Intent.FLAG_ACTIVITY_SINGLE_TOP;
         }
@@ -360,7 +356,6 @@ public class PActivityStackSupervisor {
             flag = flag ^ Intent.FLAG_ACTIVITY_CLEAR_TOP;
         }
         intent.setFlags(flag);
-        PluginDebugLog.runtimeLog(TAG, "after flag: " + Integer.toHexString(intent.getFlags()));
 
         if (isSingleTop && !isClearTop) {
             // 判断栈顶是否为需要启动的Activity, 只需要处理前台栈
@@ -531,8 +526,8 @@ public class PActivityStackSupervisor {
                 }
             }
         }
-        PluginDebugLog.runtimeLog(TAG, "dealLaunchMode end: " + intent + " "
-                + targetActivity);
+        PluginDebugLog.runtimeLog(TAG, "dealLaunchMode end: " + intent + ", after flag: "
+                + Integer.toHexString(intent.getFlags()) + ", targetActivity: "+ targetActivity);
     }
 
     /**
@@ -556,11 +551,10 @@ public class PActivityStackSupervisor {
                 }
             }
 
-            PluginLoadedApk mPlugin = null;
             for (Activity removeItem : needRemove) {
                 if (null != removeItem) {
                     String pkgName = IntentUtils.parsePkgNameFromActivity(removeItem);
-                    mPlugin = PluginManager.getPluginLoadedApkByPkgName(pkgName);
+                    PluginLoadedApk mPlugin = PluginManager.getPluginLoadedApkByPkgName(pkgName);
                     if (mPlugin != null) {
                         popActivityFromStack(removeItem);
                         if (!ContextUtils.isFinished(removeItem)) {

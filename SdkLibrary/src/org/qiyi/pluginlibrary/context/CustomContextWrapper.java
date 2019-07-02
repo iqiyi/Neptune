@@ -17,7 +17,6 @@
  */
 package org.qiyi.pluginlibrary.context;
 
-import android.annotation.NonNull;
 import android.annotation.TargetApi;
 import android.content.ComponentName;
 import android.content.ContentResolver;
@@ -36,6 +35,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteDatabase.CursorFactory;
 import android.os.Build;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.text.TextUtils;
 import android.util.ArrayMap;
 
@@ -138,12 +138,7 @@ public abstract class CustomContextWrapper extends ContextWrapper implements Int
 
     @Override
     public ComponentName startService(Intent service) {
-        PluginDebugLog.log(TAG, "startService: " + service);
-        PluginLoadedApk mLoadedApk = getPluginLoadedApk();
-        if (mLoadedApk != null) {
-            ComponentFinder.switchToServiceProxy(mLoadedApk, service);
-        }
-        return super.startService(service);
+        return super.startService(ComponentFinder.switchToServiceProxy(getPluginPackageName(), service, this));
     }
 
     @Override
@@ -174,12 +169,9 @@ public abstract class CustomContextWrapper extends ContextWrapper implements Int
 
     @Override
     public boolean bindService(Intent service, ServiceConnection conn, int flags) {
-        PluginDebugLog.log(TAG, "bindService: " + service);
-        PluginLoadedApk mLoadedApk = getPluginLoadedApk();
-        if (mLoadedApk != null) {
-            ComponentFinder.switchToServiceProxy(mLoadedApk, service);
-        }
+        ComponentFinder.switchToServiceProxy(getPluginPackageName(), service, this);
         if (conn != null) {
+            PluginLoadedApk mLoadedApk = getPluginLoadedApk();
             if (mLoadedApk != null && service != null) {
                 String serviceClass = IntentUtils.getTargetClass(service);
                 String packageName = mLoadedApk.getPluginPackageName();
@@ -481,6 +473,9 @@ public abstract class CustomContextWrapper extends ContextWrapper implements Int
         return databaseDir.list();
     }
 
+    /**
+     * @Override
+     */
     public File getSharedPrefsFile(String name) {
         File base = new File(getPluginPackageInfo().getDataDir() + SHAREDPREF_PATH);
         if (!base.exists()) {
@@ -832,5 +827,6 @@ public abstract class CustomContextWrapper extends ContextWrapper implements Int
     /**
      * 获取插件的PluginLoadedApk
      */
-    @NonNull protected abstract PluginLoadedApk getPluginLoadedApk();
+    @NonNull
+    protected abstract PluginLoadedApk getPluginLoadedApk();
 }
