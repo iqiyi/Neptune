@@ -1,7 +1,7 @@
 # Neptune
 
 ![license](http://img.shields.io/badge/license-Apache2.0-brightgreen.svg?style=flat)
-![Release Version](https://img.shields.io/badge/release-2.5.0-red.svg)
+![Release Version](https://img.shields.io/badge/release-2.7.0-red.svg)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 
 **Neptune是一套灵活，稳定，轻量级的插件化方案。**
@@ -38,7 +38,7 @@ Neptune现在完全兼容Android P系统，可以在Android P设备上稳定且�
 在App模块的`build.gradle`中compile移入Neptune库
 
 ```Gradle
-    implementation 'org.qiyi.video:neptune:2.5.0'
+    implementation 'org.qiyi.video:neptune:2.7.0'
 ```
 
 在`Application#onCreate()`阶段初始化Neptune
@@ -65,7 +65,7 @@ public class XXXApplication extends Application {
 
 ```Gradle
 dependencies {
-    classpath  'com.iqiyi.tools.build:neptune-gradle:1.1.6'
+    classpath  'com.iqiyi.tools.build:neptune-gradle:1.4.0'
 }
 ```
 
