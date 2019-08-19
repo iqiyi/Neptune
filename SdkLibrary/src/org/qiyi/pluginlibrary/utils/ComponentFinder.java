@@ -485,27 +485,7 @@ public class ComponentFinder {
 
         //通过主题判断是否是透明的
         Resources.Theme mTheme = mLoadedApk.getPluginTheme();
-        mTheme.applyStyle(actInfo.getThemeResource(), true);
-        TypedArray array = mTheme.obtainStyledAttributes(new int[]{
-                android.R.attr.windowIsTranslucent,
-        });
-        boolean attr_0 = array.getBoolean(0, false);
-        array.recycle();
-        try {
-            TypedValue tv = new TypedValue();
-            mTheme.resolveAttribute(android.R.attr.windowBackground, tv, true);
-            if (tv.type >= TypedValue.TYPE_FIRST_COLOR_INT && tv.type <= TypedValue.TYPE_LAST_COLOR_INT) {
-                PluginDebugLog.runtimeFormatLog(TAG, "windowBackground is color and is translucent:%s",
-                        (tv.data == Color.TRANSPARENT));
-                isTranslucent = attr_0 && (tv.data == Color.TRANSPARENT);
-            } else {
-                PluginDebugLog.runtimeFormatLog(TAG, "windowBackground is drawable!");
-                isTranslucent = false;
-            }
-        } catch (Exception e) {
-            PluginDebugLog.runtimeFormatLog(TAG, "windowBackground read exception!");
-            isTranslucent = attr_0;
-        }
+        isTranslucent = ActivityInfoUtils.isTranslucentTheme(mTheme, actInfo);
         if (!isTranslucent) {
             //兼容遗留逻辑
             if (actInfo.metaData != null) {

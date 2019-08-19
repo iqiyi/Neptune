@@ -330,7 +330,7 @@ public class ResourcesToolForPlugin {
      * @return resource array
      */
     private int[] optValueArray(String resourceName, String resourceType) {
-        int[] result = null;
+        int[] result = new int[0];
         if (TextUtils.isEmpty(resourceName) || TextUtils.isEmpty(resourceType) || TextUtils.isEmpty(mPackageName)) {
             PluginDebugLog.formatLog(TAG, "optValueArray resourceName: %s, resourceType : %s, mPackageName : %s , just return 0!",
                     resourceName, resourceType, mPackageName);

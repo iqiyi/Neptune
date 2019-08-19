@@ -23,7 +23,9 @@ import android.app.Instrumentation;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.content.pm.ApplicationInfo;
 import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -38,6 +40,7 @@ import org.qiyi.pluginlibrary.exception.ReflectException;
 import org.qiyi.pluginlibrary.plugin.PluginActivityCallback;
 import org.qiyi.pluginlibrary.runtime.PluginLoadedApk;
 import org.qiyi.pluginlibrary.runtime.PluginManager;
+import org.qiyi.pluginlibrary.utils.ActivityInfoUtils;
 import org.qiyi.pluginlibrary.utils.ErrorUtil;
 import org.qiyi.pluginlibrary.utils.PluginDebugLog;
 import org.qiyi.pluginlibrary.utils.ReflectionUtils;
@@ -123,6 +126,7 @@ public class PluginActivityControl implements PluginActivityCallback {
                 origActInfo.targetActivity = actInfo.targetActivity;
                 origActInfo.taskAffinity = actInfo.taskAffinity;
                 origActInfo.theme = actInfo.theme;
+                origActInfo.uiOptions = actInfo.uiOptions;
             }
 
             // 修改Window的属性
@@ -154,14 +158,38 @@ public class PluginActivityControl implements PluginActivityCallback {
         }
 
         if (actInfo != null) {
-            // copy from VirtualApk, is it really need?
-            if (actInfo.screenOrientation != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) {
-                activity.setRequestedOrientation(actInfo.screenOrientation);
+            // 设置orientation
+            if (shouldApplyOrientation(activity, actInfo, loadedApk.getPluginTheme())) {
+                try {
+                    activity.setRequestedOrientation(actInfo.screenOrientation);
+                } catch (Exception e) {
+                    ErrorUtil.throwErrorIfNeed(e);
+                }
+            } else if (origActInfo != null){
+                // set orientation to ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED avoid 8.0 crash
+                origActInfo.screenOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
             }
-            PluginDebugLog.log(TAG, "changeActivityInfo->changeTheme: " + " theme = " +
-                    actInfo.getThemeResource() + ", icon = " + actInfo.getIconResource()
-                    + ", logo = " + actInfo.logo + ", labelRes=" + actInfo.labelRes);
         }
+    }
+
+    /**
+     * 是否需要设置activity的orientation
+     * 8.0系统targetSdk > O时, 系统有bug限制了透明主题的activity不能请求orientation
+     */
+    private static boolean shouldApplyOrientation(Activity activity, ActivityInfo actInfo, Resources.Theme theme) {
+        if (actInfo.screenOrientation == ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) {
+            return false;
+        }
+        // 8.0设备 && targetSdkVersion > O && 透明activity, 不能设置orientation; 8.1中已修复
+        // http://androidxref.com/8.0.0_r4/xref/frameworks/base/core/java/android/app/Activity.java
+        ApplicationInfo appInfo = activity.getApplicationInfo();
+        if (Build.VERSION.SDK_INT == Build.VERSION_CODES.O
+                && appInfo.targetSdkVersion > Build.VERSION_CODES.O
+                && ActivityInfoUtils.isTranslucent(activity, theme, actInfo)) {
+            return false;
+        }
+        // 默认设置orientation
+        return true;
     }
 
     /**

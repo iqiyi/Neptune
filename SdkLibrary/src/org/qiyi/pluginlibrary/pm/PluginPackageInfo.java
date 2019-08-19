@@ -56,8 +56,8 @@ public class PluginPackageInfo implements Parcelable {
     private static final String TAG = "PluginPackageInfo";
 
     private static final String META_KEY_PLUGIN_APPLICATION_SPECIAL = "pluginapp_application_special";
-    private static final String PLUGIN_APPLICATION_INFO = "Handle_plugin_appinfo";
-    private static final String PLUGIN_APPLICATION_CODE_PATH = "Hanlde_plugin_code_path";
+    private static final String PLUGIN_APPLICATION_INFO = "handle_plugin_appinfo";
+    private static final String PLUGIN_APPLICATION_CODE_PATH = "handle_plugin_code_path";
 
     /**
      * 配置是否注入到宿主的ClassLoader, 已废弃
